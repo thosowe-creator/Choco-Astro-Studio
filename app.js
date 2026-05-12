@@ -27,7 +27,7 @@ const els = {
   viewCompare: document.getElementById('viewCompare'),
   viewStarless: document.getElementById('viewStarless'),
   viewStars: document.getElementById('viewStars'),
-  separateStarsBtn: document.getElementById('separateStarsBtn'),
+  starMaskOptions: document.getElementById('starMaskOptions'),
   settingsBtn: document.getElementById('settingsBtn'),
   languageSelect: document.getElementById('languageSelect'),
 };
@@ -70,9 +70,9 @@ const i18n = {
     tagline: 'Darkroom-grade stacked TIFF editor', openImage: 'Open Image', reset: 'Reset', savePng: 'Save PNG', saveJpg: 'Save JPG', settings: 'Settings',
     file: 'File', histogram: 'Histogram', masks: 'Masks', basicAdjust: 'Basic Adjust', astroTools: 'Astro Tools', starTools: 'Star Tools', localAdjust: 'Local Adjust', view: 'View',
     fileHint: 'Open a stacked TIFF, PNG, JPG, or WebP image.', black: 'Black', mid: 'Mid', white: 'White', wholeImage: 'Whole Image', objectMask: 'Object Mask', backgroundMask: 'Background Mask', starMask: 'Star Mask',
-    maskHint: 'Object mask selects extended nebula/galaxy structures while excluding stars and background. Drag on the image to guide object detection.', showMask: 'Show Mask', invertMask: 'Invert Mask', feather: 'Feather',
+    maskHint: 'Object mask selects extended nebula/galaxy structures while excluding stars and background. Drag on the image to guide object detection.', showMask: 'Show Mask', invertMask: 'Invert Mask', feather: 'Feather', starMaskRemoveHint: 'Star removal is available when the Star Mask is selected. It lowers detected star brightness to the nearby background and blends it into the image.',
     detectObject: 'Detect Object Mask', detectBackground: 'Detect Background Mask', detectStars: 'Detect Star Mask', exposure: 'Exposure', brightness: 'Brightness', contrast: 'Contrast', saturation: 'Saturation', vibrance: 'Vibrance', gamma: 'Gamma',
-    autoStretch: 'Auto Stretch', backgroundDarken: 'Background Darken', backgroundNeutral: 'Background Neutralize', gradientReduce: 'Gradient Reduce', starToolsHint: 'Separate the image into a starless layer and a stars-only layer, then remove or add stars back while editing.', separateStars: 'Separate Stars', starViewHint: 'Use View → Starless or Stars to inspect the separated layers.', starRemove: 'Star Remove', starRestore: 'Add Stars Back', starReduction: 'Star Reduction', starColor: 'Star Color', clarity: 'Clarity / Structure', denoise: 'Denoise', haAccent: 'Hα Accent',
+    autoStretch: 'Auto Stretch', backgroundDarken: 'Background Darken', backgroundNeutral: 'Background Neutralize', gradientReduce: 'Gradient Reduce', starToolsHint: 'Separate the image into a starless layer and a stars-only layer, then remove or add stars back while editing.', separateStars: 'Separate Stars', starViewHint: 'Use View → Starless or Stars to inspect the separated layers.', starRemove: 'Remove Masked Stars', starRestore: 'Add Stars Back', starReduction: 'Star Reduction', starColor: 'Star Color', clarity: 'Clarity / Structure', denoise: 'Denoise', haAccent: 'Hα Accent',
     localHint: 'Choose Object, Background, or Star Mask first. These controls only affect the selected mask.', localBrightness: 'Local Brightness', localContrast: 'Local Contrast', localSaturation: 'Local Saturation', localClarity: 'Local Detail',
     edited: 'Edited', original: 'Original', compare: 'Compare', starlessView: 'Starless', starsView: 'Stars', fit: 'Fit', language: 'Language', settingsHint: 'English is the default. Switch here whenever you want Korean UI labels.',
     emptyTitle: 'Drop your astro image into Choco Astro Studio', emptyText: 'TIFF/TIF, PNG, JPG, WebP · fast browser preview processing',
@@ -83,9 +83,9 @@ const i18n = {
     tagline: '스택 TIFF 천체사진 편집 스튜디오', openImage: '이미지 열기', reset: '초기화', savePng: 'PNG 저장', saveJpg: 'JPG 저장', settings: '설정',
     file: '파일', histogram: '히스토그램', masks: '마스크', basicAdjust: '기본 보정', astroTools: '천체사진 도구', starTools: '별 도구', localAdjust: '부분 보정', view: '보기',
     fileHint: '스태킹 완료 TIFF, PNG, JPG, WebP 등을 불러오세요.', black: '블랙', mid: '미드', white: '화이트', wholeImage: '전체 이미지', objectMask: '천체 마스크', backgroundMask: '배경 마스크', starMask: '별 마스크',
-    maskHint: '천체 마스크는 별과 배경을 제외한 은하/성운 같은 확장 구조를 선택합니다. 이미지 위를 드래그하면 감지 기준을 줄 수 있습니다.', showMask: '마스크 표시', invertMask: '마스크 반전', feather: '페더',
+    maskHint: '천체 마스크는 별과 배경을 제외한 은하/성운 같은 확장 구조를 선택합니다. 이미지 위를 드래그하면 감지 기준을 줄 수 있습니다.', showMask: '마스크 표시', invertMask: '마스크 반전', feather: '페더', starMaskRemoveHint: '별 마스크를 선택했을 때만 별 제거를 사용할 수 있습니다. 감지된 별의 밝기를 주변 배경에 맞춰 낮춘 뒤 자연스럽게 합성합니다.',
     detectObject: '천체 마스크 감지', detectBackground: '배경 마스크 감지', detectStars: '별 마스크 감지', exposure: '노출', brightness: '밝기', contrast: '대비', saturation: '채도', vibrance: '자연 채도', gamma: '감마',
-    autoStretch: '자동 스트레치', backgroundDarken: '배경 어둡게', backgroundNeutral: '배경 중화', gradientReduce: '그라디언트 완화', starToolsHint: '이미지를 별이 제거된 레이어와 별 전용 레이어로 분리한 뒤, 보정 중 별을 제거하거나 다시 더할 수 있습니다.', separateStars: '별 분리', starViewHint: '보기 → 별 제거본 또는 별 레이어에서 분리 결과를 확인하세요.', starRemove: '별 제거', starRestore: '별 다시 추가', starReduction: '별상 축소', starColor: '별 색감', clarity: '샤픈 / 구조', denoise: '노이즈 완화', haAccent: 'Hα 강조',
+    autoStretch: '자동 스트레치', backgroundDarken: '배경 어둡게', backgroundNeutral: '배경 중화', gradientReduce: '그라디언트 완화', starToolsHint: '이미지를 별이 제거된 레이어와 별 전용 레이어로 분리한 뒤, 보정 중 별을 제거하거나 다시 더할 수 있습니다.', separateStars: '별 분리', starViewHint: '보기 → 별 제거본 또는 별 레이어에서 분리 결과를 확인하세요.', starRemove: '선택한 별 제거', starRestore: '별 다시 추가', starReduction: '별상 축소', starColor: '별 색감', clarity: '샤픈 / 구조', denoise: '노이즈 완화', haAccent: 'Hα 강조',
     localHint: '천체, 배경, 별 마스크 중 하나를 먼저 선택하세요. 이 조절값은 선택한 마스크에만 적용됩니다.', localBrightness: '부분 밝기', localContrast: '부분 대비', localSaturation: '부분 채도', localClarity: '부분 디테일',
     edited: '보정', original: '원본', compare: '비교', starlessView: '별 제거본', starsView: '별 레이어', fit: '맞춤', language: '언어', settingsHint: '기본값은 영어입니다. 여기에서 언제든 한국어 UI로 바꿀 수 있습니다.',
     emptyTitle: 'Choco Astro Studio에 천체사진을 올려보세요', emptyText: 'TIFF/TIF, PNG, JPG, WebP · 빠른 브라우저 미리보기 처리',
@@ -470,7 +470,7 @@ function renderImage() {
   const localMask = state.activeMask === 'none' ? null : mask;
   const scopeMask = localMask;
   const needsSoftBase = adj.denoise > 0 || adj.gradientReduce > 0 || adj.clarity > 0 || state.locals.localClarity > 0;
-  const needsStarBase = starMask && (adj.starRemove > 0 || adj.starRestore > 0 || adj.starReduction > 0);
+  const needsStarBase = starMask && ((adj.starRemove > 0 && state.activeMask === 'stars') || adj.starRestore > 0 || adj.starReduction > 0);
   const blurred = needsSoftBase ? boxBlurImageData(state.original, 2) : null;
   const starBase = needsStarBase ? ensureStarBase(starMask) : null;
   const gradient = adj.gradientReduce > 0 ? boxBlurImageData(state.original, Math.max(12, Math.round(Math.min(w, h) / 28))) : null;
@@ -542,7 +542,7 @@ function renderImage() {
           );
         }
 
-        if (adj.starRemove > 0) {
+        if (adj.starRemove > 0 && state.activeMask === 'stars') {
           const remove = clamp01(adj.starRemove * s);
           r = lerp(r, baseR, remove);
           g = lerp(g, baseG, remove);
@@ -854,6 +854,7 @@ function createTargetMask() {
   const q92 = percentileSorted(samples, 0.92) || 1;
   const star = ensureMask('stars');
   const bg = ensureMask('background');
+  const hardStar = star ? dilateMask(star, w, h, 2) : null;
   const broad = blurScalar(lum, w, h, Math.max(9, Math.round(Math.min(w, h) / 90)));
   const hint = state.userHint;
 
@@ -873,7 +874,11 @@ function createTargetMask() {
       mask[p] = score > 0.08 ? clamp255(score * 255) : 0;
     }
   }
-  return featherMask(cleanMask(mask, w, h, 1), w, h, Number(els.maskFeather.value));
+  let out = featherMask(cleanMask(mask, w, h, 1), w, h, Number(els.maskFeather.value));
+  if (hardStar) {
+    for (let p = 0; p < out.length; p++) out[p] = clamp255(out[p] * (1 - hardStar[p] / 255));
+  }
+  return out;
 }
 
 function createBackgroundMask(existingStarMask = null) {
@@ -905,14 +910,65 @@ function createStarMask() {
     if (p % 5 === 0) samples.push(lum[p]);
   }
   samples.sort((a, b) => a - b);
-  const q = samples[Math.floor(samples.length * 0.975)] || 0.75;
-  const broad = blurScalar(lum, w, h, 5);
-  const mask = new Uint8ClampedArray(w * h);
+  const q = samples[Math.floor(samples.length * 0.982)] || 0.78;
+  const broad = blurScalar(lum, w, h, 7);
+  const local = blurScalar(lum, w, h, 2);
+  const candidates = new Uint8ClampedArray(w * h);
+
   for (let p = 0; p < lum.length; p++) {
     const pointLike = lum[p] - broad[p];
-    if (lum[p] > q || pointLike > 0.06) mask[p] = clamp255((Math.max(lum[p] - q, pointLike) / 0.16) * 255);
+    const coreContrast = lum[p] - local[p];
+    const brightCompact = lum[p] > q && pointLike > 0.025;
+    if (brightCompact || pointLike > 0.07 || coreContrast > 0.055) {
+      candidates[p] = clamp255((Math.max(lum[p] - q, pointLike, coreContrast) / 0.14) * 255);
+    }
   }
-  return featherMask(dilateMask(mask, w, h, 2), w, h, 2);
+
+  const compact = keepCompactStarComponents(candidates, lum, w, h);
+  return featherMask(dilateMask(compact, w, h, 1), w, h, 2);
+}
+
+function keepCompactStarComponents(mask, lum, w, h) {
+  const out = new Uint8ClampedArray(mask.length);
+  const seen = new Uint8Array(mask.length);
+  const stack = [];
+  const component = [];
+  const maxArea = Math.min(220, Math.max(18, Math.round((w * h) / 20000)));
+
+  for (let start = 0; start < mask.length; start++) {
+    if (seen[start] || mask[start] <= 0) continue;
+    let minX = w, minY = h, maxX = 0, maxY = 0, sum = 0, peak = 0;
+    stack.push(start);
+    seen[start] = 1;
+    component.length = 0;
+
+    while (stack.length) {
+      const p = stack.pop();
+      component.push(p);
+      const x = p % w, y = Math.floor(p / w);
+      minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      sum += lum[p]; peak = Math.max(peak, lum[p]);
+      const neighbors = [p - 1, p + 1, p - w, p + w];
+      for (const n of neighbors) {
+        if (n < 0 || n >= mask.length || seen[n] || mask[n] <= 0) continue;
+        if ((n === p - 1 && x === 0) || (n === p + 1 && x === w - 1)) continue;
+        seen[n] = 1;
+        stack.push(n);
+      }
+    }
+
+    const area = component.length;
+    const boxArea = (maxX - minX + 1) * (maxY - minY + 1);
+    const fill = area / Math.max(1, boxArea);
+    const avg = sum / area;
+    const compact = area <= maxArea && fill >= 0.18;
+    const stellarCore = peak - avg > 0.025 || area <= 8;
+    if (compact && stellarCore) {
+      for (const p of component) out[p] = mask[p];
+    }
+  }
+
+  return out;
 }
 
 function cleanMask(mask, w, h, iterations) {
@@ -1062,6 +1118,7 @@ function setActiveMask(mask) {
 }
 function updateMaskButtons() {
   document.querySelectorAll('.mask-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mask === state.activeMask));
+  if (els.starMaskOptions) els.starMaskOptions.hidden = state.activeMask !== 'stars';
 }
 
 document.querySelectorAll('[data-adj]').forEach(input => {
@@ -1090,7 +1147,6 @@ document.querySelectorAll('.mask-btn').forEach(btn => btn.addEventListener('clic
 function activateTool(tool) {
   document.querySelectorAll('[data-tool]').forEach(btn => btn.classList.toggle('active', btn.dataset.tool === tool));
   document.querySelectorAll('[data-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === tool));
-  document.querySelector('.workspace')?.classList.toggle('view-only', tool === 'view');
 }
 document.querySelectorAll('[data-tool]').forEach(btn => btn.addEventListener('click', () => activateTool(btn.dataset.tool)));
 els.languageSelect.addEventListener('change', () => applyLanguage(els.languageSelect.value));
@@ -1098,7 +1154,6 @@ els.languageSelect.addEventListener('change', () => applyLanguage(els.languageSe
 els.autoTargetBtn.addEventListener('click', () => { if (state.original) { state.masks.target = createTargetMask(); setActiveMask('target'); els.showMask.checked = true; } });
 els.autoBgBtn.addEventListener('click', () => { if (state.original) { state.masks.background = createBackgroundMask(); setActiveMask('background'); els.showMask.checked = true; } });
 els.autoStarsBtn.addEventListener('click', () => { if (state.original) { state.masks.stars = createStarMask(); invalidateStarLayers(); setActiveMask('stars'); els.showMask.checked = true; } });
-els.separateStarsBtn.addEventListener('click', () => { if (state.original) { separateStarLayers(); setView('starless'); activateTool('view'); } });
 
 els.resetBtn.addEventListener('click', () => { resetAll(false); if (state.original) renderImage(); });
 els.exportPngBtn.addEventListener('click', () => exportImage('image/png', 'png'));
