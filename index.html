@@ -23,10 +23,15 @@
         <button class="tool-tab" data-tool="masks" data-i18n="masks">Masks</button>
         <button class="tool-tab" data-tool="basic" data-i18n="basicAdjust">Basic Adjust</button>
         <button class="tool-tab" data-tool="astro" data-i18n="astroTools">Astro Tools</button>
+        <button class="tool-tab" data-tool="starless" data-i18n="starlessTool">Starless Layer Split</button>
         <button class="tool-tab" data-tool="local" data-i18n="localAdjust">Local Adjust</button>
         <button class="tool-tab" data-tool="view" data-i18n="view">View</button>
         <button id="settingsBtn" class="tool-tab" data-tool="settings" data-i18n="settings">Settings</button>
       </nav>
+      <div class="history-actions" aria-label="Edit history">
+        <button id="undoBtn" class="icon-btn" type="button" data-i18n-title="undo" title="Undo">↶</button>
+        <button id="redoBtn" class="icon-btn" type="button" data-i18n-title="redo" title="Redo">↷</button>
+      </div>
     </header>
 
     <main class="workspace">
@@ -100,13 +105,16 @@
           <label><span data-i18n="clarity">Clarity / Structure</span><input data-adj="clarity" type="range" min="0" max="1.2" step="0.01" value="0" /></label>
           <label><span data-i18n="denoise">Denoise</span><input data-adj="denoise" type="range" min="0" max="1" step="0.01" value="0" /></label>
           <label><span data-i18n="haAccent">Hα Accent</span><input data-adj="haAccent" type="range" min="0" max="1" step="0.01" value="0" /></label>
+        </section>
+
+        <section class="card controls-card tool-panel" data-panel="starless">
+          <h2 data-i18n="starlessTool">Starless Layer Split</h2>
           <div class="starless-tools">
-            <h3 data-i18n="starlessTool">Starless Layer Split</h3>
-            <p class="hint" data-i18n="starToolsHint">Separate the image into a starless nebula/background layer and a stars-only layer, then edit each layer independently.</p>
+            <p class="hint" data-i18n="starToolsHint">Separate the image into an object layer and a stars-only layer, then edit each layer independently.</p>
             <button id="activateStarlessBtn" class="button full" data-i18n="separateStars">Separate Stars</button>
             <div class="segmented stacked layer-switch" aria-label="Starless layer target">
               <button id="layerComposite" class="seg active" data-layer="composite" data-i18n="compositeLayer">Composite</button>
-              <button id="layerStarless" class="seg" data-layer="starless" data-i18n="nebulaLayer">Nebula / Background</button>
+              <button id="layerStarless" class="seg" data-layer="starless" data-i18n="nebulaLayer">Object</button>
               <button id="layerStars" class="seg" data-layer="stars" data-i18n="starsLayer">Stars Only</button>
             </div>
             <label><span data-i18n="starRestore">Add Stars Back</span><input data-adj="starRestore" type="range" min="0" max="1" step="0.01" value="0" /></label>
