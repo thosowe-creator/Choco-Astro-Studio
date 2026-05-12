@@ -204,3 +204,12 @@ input[type="checkbox"] { accent-color: var(--accent); }
   .tool-strip { position: static; }
   .canvas-stage { min-height: 380px; }
 }
+.workspace.view-only {
+  grid-template-columns: 1fr;
+}
+.workspace.view-only .tool-drawer {
+  display: none;
+}
+.workspace.view-only .canvas-stage {
+  min-height: calc(100vh - 150px);
+}

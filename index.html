@@ -30,18 +30,19 @@
     </header>
 
     <nav class="tool-strip" aria-label="Tool panels">
-      <button class="tool-tab active" data-tool="file" data-i18n="file">File</button>
+      <button class="tool-tab" data-tool="file" data-i18n="file">File</button>
       <button class="tool-tab" data-tool="histogram" data-i18n="histogram">Histogram</button>
       <button class="tool-tab" data-tool="masks" data-i18n="masks">Masks</button>
       <button class="tool-tab" data-tool="basic" data-i18n="basicAdjust">Basic Adjust</button>
       <button class="tool-tab" data-tool="astro" data-i18n="astroTools">Astro Tools</button>
+      <button class="tool-tab" data-tool="star" data-i18n="starTools">Star Tools</button>
       <button class="tool-tab" data-tool="local" data-i18n="localAdjust">Local Adjust</button>
-      <button class="tool-tab" data-tool="view" data-i18n="view">View</button>
+      <button class="tool-tab active" data-tool="view" data-i18n="view">View</button>
     </nav>
 
     <main class="workspace">
       <aside class="tool-drawer">
-        <section class="card tool-panel active" data-panel="file">
+        <section class="card tool-panel" data-panel="file">
           <h2 data-i18n="file">File</h2>
           <div id="fileMeta" class="meta-list">
             <p data-i18n="fileHint">Open a stacked TIFF, PNG, JPG, or WebP image.</p>
@@ -94,13 +95,21 @@
           <label><span data-i18n="backgroundDarken">Background Darken</span><input data-adj="backgroundDarken" type="range" min="0" max="1" step="0.01" value="0" /></label>
           <label><span data-i18n="backgroundNeutral">Background Neutralize</span><input data-adj="backgroundNeutral" type="range" min="0" max="1" step="0.01" value="0" /></label>
           <label><span data-i18n="gradientReduce">Gradient Reduce</span><input data-adj="gradientReduce" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label><span data-i18n="clarity">Clarity / Structure</span><input data-adj="clarity" type="range" min="0" max="1.2" step="0.01" value="0" /></label>
+          <label><span data-i18n="denoise">Denoise</span><input data-adj="denoise" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label><span data-i18n="haAccent">Hα Accent</span><input data-adj="haAccent" type="range" min="0" max="1" step="0.01" value="0" /></label>
+        </section>
+
+
+        <section class="card controls-card tool-panel" data-panel="star">
+          <h2 data-i18n="starTools">Star Tools</h2>
+          <p class="hint" data-i18n="starToolsHint">Separate the image into a starless layer and a stars-only layer, then remove or add stars back while editing.</p>
+          <button id="separateStarsBtn" class="button full" data-i18n="separateStars">Separate Stars</button>
           <label><span data-i18n="starRemove">Star Remove</span><input data-adj="starRemove" type="range" min="0" max="1" step="0.01" value="0" /></label>
           <label><span data-i18n="starRestore">Add Stars Back</span><input data-adj="starRestore" type="range" min="0" max="1.4" step="0.01" value="0" /></label>
           <label><span data-i18n="starReduction">Star Reduction</span><input data-adj="starReduction" type="range" min="0" max="1" step="0.01" value="0" /></label>
           <label><span data-i18n="starColor">Star Color</span><input data-adj="starColor" type="range" min="0" max="2" step="0.01" value="1" /></label>
-          <label><span data-i18n="clarity">Clarity / Structure</span><input data-adj="clarity" type="range" min="0" max="1.2" step="0.01" value="0" /></label>
-          <label><span data-i18n="denoise">Denoise</span><input data-adj="denoise" type="range" min="0" max="1" step="0.01" value="0" /></label>
-          <label><span data-i18n="haAccent">Hα Accent</span><input data-adj="haAccent" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <div class="hint" data-i18n="starViewHint">Use View → Starless or Stars to inspect the separated layers.</div>
         </section>
 
         <section class="card tool-panel" data-panel="local">
@@ -118,6 +127,8 @@
             <button id="viewEdited" class="seg active" data-i18n="edited">Edited</button>
             <button id="viewOriginal" class="seg" data-i18n="original">Original</button>
             <button id="viewCompare" class="seg" data-i18n="compare">Compare</button>
+            <button id="viewStarless" class="seg" data-i18n="starlessView">Starless</button>
+            <button id="viewStars" class="seg" data-i18n="starsView">Stars</button>
           </div>
           <div class="zoom-tools drawer-zoom">
             <button id="zoomOut" class="icon-btn">−</button>
