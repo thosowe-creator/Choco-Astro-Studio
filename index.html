@@ -35,7 +35,6 @@
       <button class="tool-tab" data-tool="masks" data-i18n="masks">Masks</button>
       <button class="tool-tab" data-tool="basic" data-i18n="basicAdjust">Basic Adjust</button>
       <button class="tool-tab" data-tool="astro" data-i18n="astroTools">Astro Tools</button>
-      <button class="tool-tab" data-tool="star" data-i18n="starTools">Star Tools</button>
       <button class="tool-tab" data-tool="local" data-i18n="localAdjust">Local Adjust</button>
       <button class="tool-tab active" data-tool="view" data-i18n="view">View</button>
     </nav>
@@ -77,6 +76,10 @@
           <button id="autoTargetBtn" class="button full" data-i18n="detectObject">Detect Object Mask</button>
           <button id="autoBgBtn" class="button full" data-i18n="detectBackground">Detect Background Mask</button>
           <button id="autoStarsBtn" class="button full" data-i18n="detectStars">Detect Star Mask</button>
+          <div id="starMaskOptions" class="star-mask-options" hidden>
+            <div class="hint" data-i18n="starMaskRemoveHint">Star removal is available when the Star Mask is selected. It lowers detected star brightness to the nearby background and blends it into the image.</div>
+            <label class="control-row"><span data-i18n="starRemove">Remove Masked Stars</span><input data-adj="starRemove" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          </div>
         </section>
 
         <section class="card controls-card tool-panel" data-panel="basic">
@@ -100,17 +103,6 @@
           <label><span data-i18n="haAccent">Hα Accent</span><input data-adj="haAccent" type="range" min="0" max="1" step="0.01" value="0" /></label>
         </section>
 
-
-        <section class="card controls-card tool-panel" data-panel="star">
-          <h2 data-i18n="starTools">Star Tools</h2>
-          <p class="hint" data-i18n="starToolsHint">Separate the image into a starless layer and a stars-only layer, then remove or add stars back while editing.</p>
-          <button id="separateStarsBtn" class="button full" data-i18n="separateStars">Separate Stars</button>
-          <label><span data-i18n="starRemove">Star Remove</span><input data-adj="starRemove" type="range" min="0" max="1" step="0.01" value="0" /></label>
-          <label><span data-i18n="starRestore">Add Stars Back</span><input data-adj="starRestore" type="range" min="0" max="1.4" step="0.01" value="0" /></label>
-          <label><span data-i18n="starReduction">Star Reduction</span><input data-adj="starReduction" type="range" min="0" max="1" step="0.01" value="0" /></label>
-          <label><span data-i18n="starColor">Star Color</span><input data-adj="starColor" type="range" min="0" max="2" step="0.01" value="1" /></label>
-          <div class="hint" data-i18n="starViewHint">Use View → Starless or Stars to inspect the separated layers.</div>
-        </section>
 
         <section class="card tool-panel" data-panel="local">
           <h2 data-i18n="localAdjust">Local Adjust</h2>
