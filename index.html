@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AstroDarkroom</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">✦</div>
+        <div>
+          <h1>AstroDarkroom</h1>
+          <p>Stacked TIFF / deep-sky image editor prototype</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <label class="button primary">
+          이미지 열기
+          <input id="fileInput" type="file" accept="image/*,.tif,.tiff" hidden />
+        </label>
+        <button id="resetBtn" class="button">초기화</button>
+        <button id="exportPngBtn" class="button">PNG 저장</button>
+        <button id="exportJpegBtn" class="button">JPG 저장</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel left-panel">
+        <section class="card file-card">
+          <h2>파일</h2>
+          <div id="fileMeta" class="meta-list">
+            <p>스태킹 완료 TIFF, PNG, JPG, WebP 등을 불러오세요.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-title-row">
+            <h2>히스토그램</h2>
+            <span id="clipInfo" class="pill">clip 0%</span>
+          </div>
+          <canvas id="histogramCanvas" width="320" height="160"></canvas>
+          <div class="hist-controls">
+            <label>Black <input id="blackPoint" type="range" min="0" max="0.35" step="0.001" value="0" /></label>
+            <label>Mid <input id="midtone" type="range" min="0.05" max="2.5" step="0.01" value="1" /></label>
+            <label>White <input id="whitePoint" type="range" min="0.45" max="1" step="0.001" value="1" /></label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>마스크</h2>
+          <div class="mask-buttons">
+            <button data-mask="none" class="mask-btn active">전체</button>
+            <button data-mask="target" class="mask-btn">은하/성운</button>
+            <button data-mask="background" class="mask-btn">배경</button>
+            <button data-mask="stars" class="mask-btn">별</button>
+          </div>
+          <div class="hint">
+            이미지 위에서 드래그하면 대상 후보 영역을 지정합니다. 클릭은 중심점 힌트로 사용됩니다.
+          </div>
+          <label class="switch-row"><input id="showMask" type="checkbox" /> 마스크 표시</label>
+          <label class="switch-row"><input id="invertMask" type="checkbox" /> 마스크 반전</label>
+          <label class="control-row">Feather <input id="maskFeather" type="range" min="0" max="36" step="1" value="12" /></label>
+          <button id="autoTargetBtn" class="button full">은하/성운 자동 감지</button>
+          <button id="autoBgBtn" class="button full">배경 자동 분리</button>
+          <button id="autoStarsBtn" class="button full">별 마스크 감지</button>
+        </section>
+      </aside>
+
+      <section class="viewer-wrap">
+        <div class="viewer-toolbar">
+          <div class="segmented">
+            <button id="viewEdited" class="seg active">보정</button>
+            <button id="viewOriginal" class="seg">원본</button>
+            <button id="viewCompare" class="seg">비교</button>
+          </div>
+          <div class="zoom-tools">
+            <button id="zoomOut" class="icon-btn">−</button>
+            <span id="zoomLabel">100%</span>
+            <button id="zoomIn" class="icon-btn">+</button>
+            <button id="fitBtn" class="icon-btn">맞춤</button>
+          </div>
+        </div>
+        <div id="dropZone" class="canvas-stage">
+          <canvas id="imageCanvas"></canvas>
+          <div id="emptyState" class="empty-state">
+            <div class="empty-icon">☄</div>
+            <h2>스택된 천체사진을 올려보세요</h2>
+            <p>TIFF/TIF, PNG, JPG, WebP 지원 · 브라우저에서 로컬 처리</p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel right-panel">
+        <section class="card">
+          <h2>프리셋</h2>
+          <div class="preset-grid">
+            <button class="preset" data-preset="natural">Galaxy Natural</button>
+            <button class="preset" data-preset="strong">Galaxy Strong</button>
+            <button class="preset" data-preset="nebula">Nebula Boost</button>
+            <button class="preset" data-preset="dark">Dark Background</button>
+            <button class="preset" data-preset="dwarf">Dwarf Clean</button>
+            <button class="preset" data-preset="ha">Hα Accent</button>
+          </div>
+        </section>
+
+        <section class="card controls-card">
+          <h2>기본 보정</h2>
+          <label>노출 <input data-adj="exposure" type="range" min="-2" max="2" step="0.01" value="0" /></label>
+          <label>밝기 <input data-adj="brightness" type="range" min="-0.4" max="0.4" step="0.005" value="0" /></label>
+          <label>대비 <input data-adj="contrast" type="range" min="0.2" max="2.4" step="0.01" value="1" /></label>
+          <label>채도 <input data-adj="saturation" type="range" min="0" max="2.5" step="0.01" value="1" /></label>
+          <label>자연 채도 <input data-adj="vibrance" type="range" min="0" max="1.6" step="0.01" value="0" /></label>
+          <label>감마 <input data-adj="gamma" type="range" min="0.25" max="2.6" step="0.01" value="1" /></label>
+        </section>
+
+        <section class="card controls-card">
+          <h2>천체사진 특화</h2>
+          <label>자동 스트레치 <input data-adj="autoStretch" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label>배경 어둡게 <input data-adj="backgroundDarken" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label>배경 중화 <input data-adj="backgroundNeutral" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label>그라디언트 완화 <input data-adj="gradientReduce" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label>별 축소 <input data-adj="starReduction" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label>샤픈/구조 <input data-adj="clarity" type="range" min="0" max="1.2" step="0.01" value="0" /></label>
+          <label>노이즈 완화 <input data-adj="denoise" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label>Hα 강조 <input data-adj="haAccent" type="range" min="0" max="1" step="0.01" value="0" /></label>
+        </section>
+
+        <section class="card">
+          <h2>부분 보정</h2>
+          <p class="hint">선택된 마스크에만 적용됩니다. “전체”일 때는 비활성에 가깝게 작동합니다.</p>
+          <label>부분 밝기 <input data-local="localBrightness" type="range" min="-0.4" max="0.6" step="0.005" value="0" /></label>
+          <label>부분 대비 <input data-local="localContrast" type="range" min="0.3" max="2.2" step="0.01" value="1" /></label>
+          <label>부분 채도 <input data-local="localSaturation" type="range" min="0" max="2.5" step="0.01" value="1" /></label>
+          <label>부분 디테일 <input data-local="localClarity" type="range" min="0" max="1.2" step="0.01" value="0" /></label>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
