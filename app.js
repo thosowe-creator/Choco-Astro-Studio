@@ -51,6 +51,7 @@ const state = {
   masks: { target: null, background: null, stars: null },
   starless: null,
   starLayer: null,
+  starBase: null,
   userHint: null,
   dragStart: null,
   dragRect: null,
@@ -411,6 +412,7 @@ function resetAll(clearImage = true) {
   state.masks = { target: null, background: null, stars: null };
   state.starless = null;
   state.starLayer = null;
+  state.starBase = null;
   state.userHint = null;
   state.dragRect = null;
   if (clearImage) {
@@ -469,7 +471,8 @@ function renderImage() {
   const scopeMask = localMask;
   const needsSoftBase = adj.denoise > 0 || adj.gradientReduce > 0 || adj.clarity > 0 || state.locals.localClarity > 0;
   const needsStarBase = starMask && (adj.starRemove > 0 || adj.starRestore > 0 || adj.starReduction > 0);
-  const blurred = (needsSoftBase || needsStarBase) ? boxBlurImageData(state.original, needsStarBase ? 4 : 2) : null;
+  const blurred = needsSoftBase ? boxBlurImageData(state.original, 2) : null;
+  const starBase = needsStarBase ? ensureStarBase(starMask) : null;
   const gradient = adj.gradientReduce > 0 ? boxBlurImageData(state.original, Math.max(12, Math.round(Math.min(w, h) / 28))) : null;
 
   for (let i = 0, p = 0; i < src.length; i += 4, p++) {
@@ -529,9 +532,15 @@ function renderImage() {
     if (starMask) {
       const s = starMask[p] / 255;
       if (s > 0) {
-        const baseR = needsStarBase && blurred ? blurred.data[i] / 255 : 0;
-        const baseG = needsStarBase && blurred ? blurred.data[i + 1] / 255 : 0;
-        const baseB = needsStarBase && blurred ? blurred.data[i + 2] / 255 : 0;
+        let baseR = 0, baseG = 0, baseB = 0;
+        if (needsStarBase && starBase) {
+          [baseR, baseG, baseB] = processStarBaseColor(
+            starBase.data[i] / 255,
+            starBase.data[i + 1] / 255,
+            starBase.data[i + 2] / 255,
+            adj, bp, wp, gamma, exposureMul
+          );
+        }
 
         if (adj.starRemove > 0) {
           const remove = clamp01(adj.starRemove * s);
@@ -555,9 +564,10 @@ function renderImage() {
         }
 
         if (adj.starRestore > 0) {
-          const sr = src[i] / 255 - baseR;
-          const sg = src[i + 1] / 255 - baseG;
-          const sb = src[i + 2] / 255 - baseB;
+          const [srcR, srcG, srcB] = processStarBaseColor(src[i] / 255, src[i + 1] / 255, src[i + 2] / 255, adj, bp, wp, gamma, exposureMul);
+          const sr = srcR - baseR;
+          const sg = srcG - baseG;
+          const sb = srcB - baseB;
           const restored = applySaturation(clamp01(baseR + Math.max(0, sr)), clamp01(baseG + Math.max(0, sg)), clamp01(baseB + Math.max(0, sb)), adj.starColor, 0);
           const add = clamp01(adj.starRestore * s);
           r = clamp01(r + (restored[0] - baseR) * add);
@@ -630,6 +640,85 @@ function applySaturation(r, g, b, sat, vib) {
   ];
 }
 
+function processStarBaseColor(r, g, b, adj, bp, wp, gamma, exposureMul) {
+  r = stretchChannel(r, bp, wp, gamma, exposureMul, adj.autoStretch);
+  g = stretchChannel(g, bp, wp, gamma, exposureMul, adj.autoStretch);
+  b = stretchChannel(b, bp, wp, gamma, exposureMul, adj.autoStretch);
+
+  r = clamp01((r - 0.5) * adj.contrast + 0.5 + adj.brightness);
+  g = clamp01((g - 0.5) * adj.contrast + 0.5 + adj.brightness);
+  b = clamp01((b - 0.5) * adj.contrast + 0.5 + adj.brightness);
+  [r, g, b] = applySaturation(r, g, b, adj.saturation, adj.vibrance);
+
+  if (adj.haAccent > 0) {
+    const ha = Math.max(0, r - Math.max(g, b) * 0.72);
+    r = clamp01(r + ha * adj.haAccent * 0.8);
+    g = clamp01(g - ha * adj.haAccent * 0.12);
+    b = clamp01(b - ha * adj.haAccent * 0.06);
+  }
+
+  return [r, g, b];
+}
+
+function createStarBaseImage(imageData, starMask) {
+  if (!imageData || !starMask) return imageData;
+  const { data, width: w, height: h } = imageData;
+  const out = new Uint8ClampedArray(data);
+  const offsets = starSampleOffsets();
+
+  for (let p = 0; p < starMask.length; p++) {
+    if (starMask[p] <= 6) continue;
+    const x = p % w, y = Math.floor(p / w);
+    const bg = estimateBackgroundAt(data, starMask, w, h, x, y, offsets);
+    const i = p * 4;
+    out[i] = bg[0];
+    out[i + 1] = bg[1];
+    out[i + 2] = bg[2];
+  }
+
+  return new ImageData(out, w, h);
+}
+
+let cachedStarSampleOffsets = null;
+function starSampleOffsets() {
+  if (cachedStarSampleOffsets) return cachedStarSampleOffsets;
+  const offsets = [];
+  for (let radius = 3; radius <= 14; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d >= radius - 0.5 && d < radius + 0.5) offsets.push([dx, dy, d]);
+      }
+    }
+  }
+  cachedStarSampleOffsets = offsets.sort((a, b) => a[2] - b[2]);
+  return cachedStarSampleOffsets;
+}
+
+function estimateBackgroundAt(data, starMask, w, h, x, y, offsets) {
+  let r = 0, g = 0, b = 0, weight = 0, samples = 0;
+  for (const [dx, dy, distance] of offsets) {
+    const nx = x + dx, ny = y + dy;
+    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+    const p = ny * w + nx;
+    if (starMask[p] > 36) continue;
+    const i = p * 4;
+    const l = luminance(data[i], data[i + 1], data[i + 2]);
+    const sampleWeight = (1 / Math.max(1, distance)) * (1 - clamp01(l / 255) * 0.35);
+    r += data[i] * sampleWeight;
+    g += data[i + 1] * sampleWeight;
+    b += data[i + 2] * sampleWeight;
+    weight += sampleWeight;
+    samples++;
+    if (samples >= 24 && distance >= 7) break;
+  }
+
+  if (weight > 0) return [r / weight, g / weight, b / weight];
+
+  const fallback = localBackgroundEstimate(data, w, h, y * w + x);
+  return [fallback[0] * 255, fallback[1] * 255, fallback[2] * 255];
+}
+
 function drawCanvas() {
   if (!state.original || !state.edited) return;
   let frame = state.edited;
@@ -646,7 +735,7 @@ function drawCanvas() {
 function separateStarLayers() {
   if (!state.original) return;
   const starMask = ensureMask('stars');
-  const base = boxBlurImageData(state.original, 4);
+  const base = ensureStarBase(starMask);
   const src = state.original.data;
   const starless = new Uint8ClampedArray(src.length);
   const stars = new Uint8ClampedArray(src.length);
@@ -657,7 +746,7 @@ function separateStarLayers() {
       const original = src[i + c];
       const background = base.data[i + c];
       const starSignal = Math.max(0, original - background) * s;
-      starless[i + c] = clamp255(original - starSignal);
+      starless[i + c] = clamp255(lerp(original, background, s));
       stars[i + c] = clamp255(starSignal * 2.4);
     }
     starless[i + 3] = src[i + 3];
@@ -939,6 +1028,18 @@ function localBackgroundEstimate(data, w, h, p) {
   return vals[Math.floor(vals.length * 0.35)];
 }
 
+function invalidateStarLayers() {
+  state.starless = null;
+  state.starLayer = null;
+  state.starBase = null;
+}
+
+function ensureStarBase(starMask = ensureMask('stars')) {
+  if (!state.original || !starMask) return null;
+  if (!state.starBase) state.starBase = createStarBaseImage(state.original, starMask);
+  return state.starBase;
+}
+
 function ensureMask(mask) {
   if (!state.original || mask === 'none') return null;
   if (state.masks[mask]) return state.masks[mask];
@@ -980,7 +1081,7 @@ els.maskFeather.addEventListener('input', () => {
   if (!state.original) return;
   if (state.activeMask === 'target') state.masks.target = createTargetMask();
   if (state.activeMask === 'background') state.masks.background = createBackgroundMask();
-  if (state.activeMask === 'stars') state.masks.stars = createStarMask();
+  if (state.activeMask === 'stars') { state.masks.stars = createStarMask(); invalidateStarLayers(); }
   scheduleRender();
 });
 
@@ -996,7 +1097,7 @@ els.languageSelect.addEventListener('change', () => applyLanguage(els.languageSe
 
 els.autoTargetBtn.addEventListener('click', () => { if (state.original) { state.masks.target = createTargetMask(); setActiveMask('target'); els.showMask.checked = true; } });
 els.autoBgBtn.addEventListener('click', () => { if (state.original) { state.masks.background = createBackgroundMask(); setActiveMask('background'); els.showMask.checked = true; } });
-els.autoStarsBtn.addEventListener('click', () => { if (state.original) { state.masks.stars = createStarMask(); setActiveMask('stars'); els.showMask.checked = true; } });
+els.autoStarsBtn.addEventListener('click', () => { if (state.original) { state.masks.stars = createStarMask(); invalidateStarLayers(); setActiveMask('stars'); els.showMask.checked = true; } });
 els.separateStarsBtn.addEventListener('click', () => { if (state.original) { separateStarLayers(); setView('starless'); activateTool('view'); } });
 
 els.resetBtn.addEventListener('click', () => { resetAll(false); if (state.original) renderImage(); });
