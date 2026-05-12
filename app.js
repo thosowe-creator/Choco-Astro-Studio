@@ -720,8 +720,9 @@ function processStarBaseColor(r, g, b, adj, bp, wp, gamma, exposureMul) {
 function createStarBaseImage(imageData, starMask) {
   if (!imageData || !starMask) return imageData;
   const { data, width: w, height: h } = imageData;
-  const inpaintMask = featherMask(dilateMask(starMask, w, h, 2), w, h, 2);
-  const hardMask = dilateMask(starMask, w, h, 1);
+  const inpaintRadius = Math.max(3, Math.min(10, Math.round(Math.sqrt(w * h) / 330)));
+  const inpaintMask = featherMask(dilateMask(starMask, w, h, inpaintRadius), w, h, Math.max(3, Math.round(inpaintRadius / 2)));
+  const hardMask = dilateMask(starMask, w, h, Math.max(2, Math.round(inpaintRadius / 2)));
   const out = new Uint8ClampedArray(data);
   const offsets = starSampleOffsets();
 
@@ -738,7 +739,7 @@ function createStarBaseImage(imageData, starMask) {
     out[i + 2] = lerp(out[i + 2], neutral[2], m);
   }
 
-  diffuseInpaint(out, inpaintMask, w, h, 3);
+  diffuseInpaint(out, inpaintMask, w, h, 5);
   return new ImageData(out, w, h);
 }
 
@@ -821,7 +822,8 @@ function drawCanvas() {
 
 function separateStarLayers() {
   if (!state.original) return;
-  const starMask = ensureMask('stars');
+  const detectedStarMask = ensureMask('stars');
+  const starMask = detectedStarMask ? dilateMask(detectedStarMask, state.w, state.h, Math.max(1, Math.round(Math.sqrt(state.w * state.h) / 700))) : null;
   const base = ensureStarBase(starMask);
   const src = state.original.data;
   const starless = new Uint8ClampedArray(src.length);
@@ -976,7 +978,7 @@ function createTargetMask() {
   const q92 = percentileSorted(samples, 0.92) || 1;
   const star = ensureMask('stars');
   const bg = ensureMask('background');
-  const hardStar = star ? dilateMask(star, w, h, 2) : null;
+  const hardStar = star ? dilateMask(star, w, h, Math.max(4, Math.round(Math.sqrt(w * h) / 360))) : null;
   const broad = blurScalar(lum, w, h, Math.max(9, Math.round(Math.min(w, h) / 90)));
   const hint = state.userHint;
 
@@ -1032,7 +1034,7 @@ function createStarMask() {
     if (p % 5 === 0) samples.push(lum[p]);
   }
   samples.sort((a, b) => a - b);
-  const q = samples[Math.floor(samples.length * 0.982)] || 0.78;
+  const q = samples[Math.floor(samples.length * 0.976)] || 0.74;
   const broad = blurScalar(lum, w, h, 7);
   const local = blurScalar(lum, w, h, 2);
   const candidates = new Uint8ClampedArray(w * h);
@@ -1043,14 +1045,14 @@ function createStarMask() {
     const maxc = Math.max(data[i], data[i + 1], data[i + 2]) / 255;
     const minc = Math.min(data[i], data[i + 1], data[i + 2]) / 255;
     const chromaHalo = maxc - minc > 0.16 && pointLike > 0.018 && lum[p] > q * 0.48;
-    const brightCompact = lum[p] > q && pointLike > 0.025;
-    if (brightCompact || pointLike > 0.07 || coreContrast > 0.055 || chromaHalo) {
+    const brightCompact = lum[p] > q && pointLike > 0.018;
+    if (brightCompact || pointLike > 0.052 || coreContrast > 0.04 || chromaHalo) {
       candidates[p] = clamp255((Math.max(lum[p] - q, pointLike, coreContrast, chromaHalo ? 0.075 : 0) / 0.14) * 255);
     }
   }
 
   const compact = keepCompactStarComponents(candidates, lum, w, h);
-  const haloRadius = Math.max(2, Math.min(6, Math.round(Math.sqrt(w * h) / 420)));
+  const haloRadius = Math.max(3, Math.min(9, Math.round(Math.sqrt(w * h) / 310)));
   const halo = dilateMask(compact, w, h, haloRadius);
   return featherMask(halo, w, h, Math.max(2, haloRadius));
 }
@@ -1060,7 +1062,7 @@ function keepCompactStarComponents(mask, lum, w, h) {
   const seen = new Uint8Array(mask.length);
   const stack = [];
   const component = [];
-  const maxArea = Math.min(220, Math.max(18, Math.round((w * h) / 20000)));
+  const maxArea = Math.min(420, Math.max(30, Math.round((w * h) / 12000)));
 
   for (let start = 0; start < mask.length; start++) {
     if (seen[start] || mask[start] <= 0) continue;
