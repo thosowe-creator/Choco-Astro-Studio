@@ -31,6 +31,8 @@ const els = {
   layerStars: document.getElementById('layerStars'),
   starMaskOptions: document.getElementById('starMaskOptions'),
   settingsBtn: document.getElementById('settingsBtn'),
+  undoBtn: document.getElementById('undoBtn'),
+  redoBtn: document.getElementById('redoBtn'),
   languageSelect: document.getElementById('languageSelect'),
 };
 
@@ -59,12 +61,19 @@ const state = {
   userHint: null,
   dragStart: null,
   dragRect: null,
-  adjustments: defaultAdjustments(),
-  locals: defaultLocals(),
+  layerAdjustments: createLayerAdjustments(),
+  layerLocals: createLayerLocals(),
+  adjustments: null,
+  locals: null,
   renderQueued: false,
   renderTimer: null,
   language: localStorage.getItem('choco-astro-language') || 'en',
+  history: [],
+  historyIndex: -1,
+  suppressHistory: false,
 };
+state.adjustments = state.layerAdjustments.composite;
+state.locals = state.layerLocals.composite;
 
 const MAX_PROCESSING_PIXELS = 2600000;
 const HISTOGRAM_SAMPLE_PIXELS = 350000;
@@ -72,29 +81,29 @@ const HISTOGRAM_SAMPLE_PIXELS = 350000;
 const i18n = {
   en: {
     tagline: 'Darkroom-grade stacked TIFF editor', openImage: 'Open Image', reset: 'Reset', savePng: 'Save PNG', saveJpg: 'Save JPG', settings: 'Settings',
-    file: 'File', histogram: 'Histogram', masks: 'Masks', basicAdjust: 'Basic Adjust', astroTools: 'Astro Tools', starTools: 'Star Tools', starlessTool: 'Starless Layer Split', compositeLayer: 'Composite', nebulaLayer: 'Nebula / Background', starsLayer: 'Stars Only', localAdjust: 'Local Adjust', view: 'View',
+    file: 'File', histogram: 'Histogram', masks: 'Masks', basicAdjust: 'Basic Adjust', astroTools: 'Astro Tools', starTools: 'Star Tools', starlessTool: 'Starless Layer Split', compositeLayer: 'Composite', nebulaLayer: 'Object', starsLayer: 'Stars Only', localAdjust: 'Local Adjust', view: 'View',
     fileHint: 'Open a stacked TIFF, PNG, JPG, or WebP image.', black: 'Black', mid: 'Mid', white: 'White', wholeImage: 'Whole Image', objectMask: 'Object Mask', backgroundMask: 'Background Mask', starMask: 'Star Mask',
     maskHint: 'Object mask selects extended nebula/galaxy structures while excluding stars and background. Drag on the image to guide object detection.', showMask: 'Show Mask', invertMask: 'Invert Mask', feather: 'Feather', starMaskRemoveHint: 'Star removal is available when the Star Mask is selected. It lowers detected star brightness to the nearby background and blends it into the image.',
     detectObject: 'Detect Object Mask', detectBackground: 'Detect Background Mask', detectStars: 'Detect Star Mask', exposure: 'Exposure', brightness: 'Brightness', contrast: 'Contrast', saturation: 'Saturation', vibrance: 'Vibrance', gamma: 'Gamma',
-    autoStretch: 'Auto Stretch', backgroundDarken: 'Background Darken', backgroundNeutral: 'Background Neutralize', gradientReduce: 'Gradient Reduce', starToolsHint: 'Separate the image into a starless nebula/background layer and a stars-only layer, then edit each layer independently.', separateStars: 'Separate Stars', starViewHint: 'Use View → Starless or Stars to inspect the separated layers.', starRemove: 'Remove Masked Stars', starRestore: 'Add Stars Back', starReduction: 'Star Reduction', starColor: 'Star Color', clarity: 'Clarity / Structure', denoise: 'Denoise', haAccent: 'Hα Accent',
+    autoStretch: 'Auto Stretch', backgroundDarken: 'Background Darken', backgroundNeutral: 'Background Neutralize', gradientReduce: 'Gradient Reduce', starToolsHint: '', separateStars: 'Separate Stars', starViewHint: 'Use View → Starless or Stars to inspect the separated layers.', starRemove: 'Remove Masked Stars', starRestore: 'Add Stars Back', starReduction: 'Star Reduction', starColor: 'Star Color', clarity: 'Clarity / Structure', denoise: 'Denoise', haAccent: 'Hα Accent',
     localHint: 'Choose Object, Background, or Star Mask first. These controls only affect the selected mask.', localBrightness: 'Local Brightness', localContrast: 'Local Contrast', localSaturation: 'Local Saturation', localClarity: 'Local Detail',
     edited: 'Edited', original: 'Original', compare: 'Compare', starlessView: 'Starless', starsView: 'Stars', fit: 'Fit', language: 'Language', settingsHint: 'English is the default. Switch here whenever you want Korean UI labels.',
     emptyTitle: 'Drop your astro image into Choco Astro Studio', emptyText: 'TIFF/TIF, PNG, JPG, WebP · fast browser preview processing',
     metaName: 'Name', metaFormat: 'Format', metaSource: 'Source', metaWorking: 'Working', metaBit: 'Bit Depth', metaSize: 'File Size',
-    readFail: 'Could not read the image.', readFailDetail: 'Check TIFF compression, bit depth, or memory limits.', tiffDecoderFail: 'Could not load the TIFF decoder. Check internet connection or CDN blocking.', noTiffPages: 'No TIFF pages were found.', tiffFallback: 'Could not directly interpret the TIFF samples, so UTIF 8-bit conversion was used.',
+    readFail: 'Could not read the image.', readFailDetail: 'Check TIFF compression, bit depth, or memory limits.', tiffDecoderFail: 'Could not load the TIFF decoder. Check internet connection or CDN blocking.', noTiffPages: 'No TIFF pages were found.', tiffFallback: 'Could not directly interpret the TIFF samples, so UTIF 8-bit conversion was used.', undo: 'Undo', redo: 'Redo',
   },
   ko: {
     tagline: '스택 TIFF 천체사진 편집 스튜디오', openImage: '이미지 열기', reset: '초기화', savePng: 'PNG 저장', saveJpg: 'JPG 저장', settings: '설정',
-    file: '파일', histogram: '히스토그램', masks: '마스크', basicAdjust: '기본 보정', astroTools: '천체사진 도구', starTools: '별 도구', starlessTool: '스타리스 레이어 분리', compositeLayer: '합성', nebulaLayer: '성운 / 배경', starsLayer: '별만', localAdjust: '부분 보정', view: '보기',
+    file: '파일', histogram: '히스토그램', masks: '마스크', basicAdjust: '기본 보정', astroTools: '천체사진 도구', starTools: '별 도구', starlessTool: '스타리스 레이어 분리', compositeLayer: '합성', nebulaLayer: 'Object', starsLayer: '별만', localAdjust: '부분 보정', view: '보기',
     fileHint: '스태킹 완료 TIFF, PNG, JPG, WebP 등을 불러오세요.', black: '블랙', mid: '미드', white: '화이트', wholeImage: '전체 이미지', objectMask: '천체 마스크', backgroundMask: '배경 마스크', starMask: '별 마스크',
     maskHint: '천체 마스크는 별과 배경을 제외한 은하/성운 같은 확장 구조를 선택합니다. 이미지 위를 드래그하면 감지 기준을 줄 수 있습니다.', showMask: '마스크 표시', invertMask: '마스크 반전', feather: '페더', starMaskRemoveHint: '별 마스크를 선택했을 때만 별 제거를 사용할 수 있습니다. 감지된 별의 밝기를 주변 배경에 맞춰 낮춘 뒤 자연스럽게 합성합니다.',
     detectObject: '천체 마스크 감지', detectBackground: '배경 마스크 감지', detectStars: '별 마스크 감지', exposure: '노출', brightness: '밝기', contrast: '대비', saturation: '채도', vibrance: '자연 채도', gamma: '감마',
-    autoStretch: '자동 스트레치', backgroundDarken: '배경 어둡게', backgroundNeutral: '배경 중화', gradientReduce: '그라디언트 완화', starToolsHint: '성운/배경만 있는 레이어와 별만 있는 레이어를 분리한 뒤 각 레이어를 독립적으로 보정합니다.', separateStars: '별 분리', starViewHint: '천체사진 도구에서 성운/배경 또는 별만 레이어를 선택해 분리 결과를 보정하세요.', starRemove: '선택한 별 제거', starRestore: '별 다시 추가', starReduction: '별상 축소', starColor: '별 색감', clarity: '샤픈 / 구조', denoise: '노이즈 완화', haAccent: 'Hα 강조',
+    autoStretch: '자동 스트레치', backgroundDarken: '배경 어둡게', backgroundNeutral: '배경 중화', gradientReduce: '그라디언트 완화', starToolsHint: '', separateStars: '별 분리', starViewHint: 'Starless Layer Split에서 Object 또는 별만 레이어를 선택해 분리 결과를 보정하세요.', starRemove: '선택한 별 제거', starRestore: '별 다시 추가', starReduction: '별상 축소', starColor: '별 색감', clarity: '샤픈 / 구조', denoise: '노이즈 완화', haAccent: 'Hα 강조',
     localHint: '천체, 배경, 별 마스크 중 하나를 먼저 선택하세요. 이 조절값은 선택한 마스크에만 적용됩니다.', localBrightness: '부분 밝기', localContrast: '부분 대비', localSaturation: '부분 채도', localClarity: '부분 디테일',
     edited: '보정', original: '원본', compare: '비교', starlessView: '별 제거본', starsView: '별 레이어', fit: '맞춤', language: '언어', settingsHint: '기본값은 영어입니다. 여기에서 언제든 한국어 UI로 바꿀 수 있습니다.',
     emptyTitle: 'Choco Astro Studio에 천체사진을 올려보세요', emptyText: 'TIFF/TIF, PNG, JPG, WebP · 빠른 브라우저 미리보기 처리',
     metaName: '이름', metaFormat: '포맷', metaSource: '원본', metaWorking: '작업', metaBit: '비트', metaSize: '용량',
-    readFail: '이미지를 읽지 못했습니다.', readFailDetail: 'TIFF 압축/비트 심도/메모리 제한을 확인해주세요.', tiffDecoderFail: 'TIFF 디코더를 불러오지 못했습니다. 인터넷 연결 또는 CDN 차단 여부를 확인해주세요.', noTiffPages: 'TIFF 페이지를 찾지 못했습니다.', tiffFallback: 'TIFF 원본 샘플을 직접 해석하지 못해 UTIF 8-bit 변환을 사용했습니다.',
+    readFail: '이미지를 읽지 못했습니다.', readFailDetail: 'TIFF 압축/비트 심도/메모리 제한을 확인해주세요.', tiffDecoderFail: 'TIFF 디코더를 불러오지 못했습니다. 인터넷 연결 또는 CDN 차단 여부를 확인해주세요.', noTiffPages: 'TIFF 페이지를 찾지 못했습니다.', tiffFallback: 'TIFF 원본 샘플을 직접 해석하지 못해 UTIF 8-bit 변환을 사용했습니다.', undo: '뒤로가기', redo: '앞으로가기',
   }
 };
 
@@ -107,6 +116,7 @@ function applyLanguage(language = state.language) {
   localStorage.setItem('choco-astro-language', language);
   document.documentElement.lang = language;
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); el.setAttribute('aria-label', t(el.dataset.i18nTitle)); });
   if (els.languageSelect) els.languageSelect.value = language;
   if (!state.file) els.fileMeta.innerHTML = `<p>${t('fileHint')}</p>`;
   else updateMeta(state.file);
@@ -142,6 +152,18 @@ function defaultLocals() {
     localSaturation: 1,
     localClarity: 0,
   };
+}
+
+function createLayerAdjustments() {
+  return { composite: defaultAdjustments(), starless: defaultAdjustments(), stars: defaultAdjustments() };
+}
+
+function createLayerLocals() {
+  return { composite: defaultLocals(), starless: defaultLocals(), stars: defaultLocals() };
+}
+
+function clonePlain(obj) {
+  return JSON.parse(JSON.stringify(obj));
 }
 
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -210,6 +232,7 @@ async function loadFile(file) {
     fitToStage();
     updateMeta(file);
     renderImage();
+    recordHistory();
   } catch (err) {
     console.error(err);
     alert(`${t('readFail')} ${err.message || t('readFailDetail')}`);
@@ -410,8 +433,10 @@ function updateMeta(file) {
 function escapeHtml(str) { return String(str).replace(/[&<>'"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[s])); }
 
 function resetAll(clearImage = true) {
-  state.adjustments = defaultAdjustments();
-  state.locals = defaultLocals();
+  state.layerAdjustments = createLayerAdjustments();
+  state.layerLocals = createLayerLocals();
+  state.adjustments = state.layerAdjustments.composite;
+  state.locals = state.layerLocals.composite;
   state.activeMask = 'none';
   state.masks = { target: null, background: null, stars: null };
   state.starless = null;
@@ -421,6 +446,8 @@ function resetAll(clearImage = true) {
   state.activeLayer = 'composite';
   state.userHint = null;
   state.dragRect = null;
+  state.history = [];
+  state.historyIndex = -1;
   if (clearImage) {
     state.original = null;
     state.edited = null;
@@ -433,6 +460,7 @@ function resetAll(clearImage = true) {
   }
   applyLanguage();
   syncControls();
+  updateRangeReadouts();
   activateTool(clearImage ? 'file' : 'file');
   updateMaskButtons();
   syncLayerButtons();
@@ -460,11 +488,34 @@ function autoCreateMasks() {
 
 function renderImage() {
   if (!state.original) return;
-  const sourceImage = getRenderSourceImage();
+  if (state.starlessActive && state.activeLayer === 'composite' && state.starless && state.starLayer) {
+    state.edited = composeStarlessComposite();
+  } else {
+    state.edited = processImageData(getRenderSourceImage(), state.adjustments, state.locals);
+  }
+  drawCanvas();
+  drawHistogram(state.edited);
+}
+
+function composeStarlessComposite() {
+  if (!state.starless || !state.starLayer) separateStarLayers();
+  const objectImage = processImageData(state.starless, state.layerAdjustments.starless, state.layerLocals.starless);
+  const starsImage = processImageData(state.starLayer, state.layerAdjustments.stars, state.layerLocals.stars);
+  const out = new Uint8ClampedArray(objectImage.data.length);
+  for (let i = 0; i < out.length; i += 4) {
+    out[i] = clamp255(objectImage.data[i] + starsImage.data[i]);
+    out[i + 1] = clamp255(objectImage.data[i + 1] + starsImage.data[i + 1]);
+    out[i + 2] = clamp255(objectImage.data[i + 2] + starsImage.data[i + 2]);
+    out[i + 3] = objectImage.data[i + 3];
+  }
+  return new ImageData(out, state.w, state.h);
+}
+
+function processImageData(sourceImage, adj = state.adjustments, locals = state.locals) {
+  if (!sourceImage) return null;
   const src = sourceImage.data;
   const out = new Uint8ClampedArray(src.length);
   const w = state.w, h = state.h;
-  const adj = state.adjustments;
   const bp = Number(els.blackPoint.value);
   const wp = Number(els.whitePoint.value);
   const mid = Number(els.midtone.value);
@@ -477,7 +528,7 @@ function renderImage() {
   const mask = getActiveMask();
   const localMask = state.activeMask === 'none' ? null : mask;
   const scopeMask = localMask;
-  const needsSoftBase = adj.denoise > 0 || adj.gradientReduce > 0 || adj.clarity > 0 || state.locals.localClarity > 0;
+  const needsSoftBase = adj.denoise > 0 || adj.gradientReduce > 0 || adj.clarity > 0 || locals.localClarity > 0;
   const needsStarBase = starMask && ((adj.starRemove > 0 && state.activeMask === 'stars') || adj.starRestore > 0 || adj.starReduction > 0 || state.starlessActive);
   const blurred = needsSoftBase ? boxBlurImageData(sourceImage, 2) : null;
   const starBase = needsStarBase ? ensureStarBase(starMask) : null;
@@ -590,14 +641,14 @@ function renderImage() {
       if (els.invertMask.checked) m = 1 - m;
       if (m > 0.001) {
         let lr = r, lg = g, lb = b;
-        lr = clamp01((lr - 0.5) * state.locals.localContrast + 0.5 + state.locals.localBrightness);
-        lg = clamp01((lg - 0.5) * state.locals.localContrast + 0.5 + state.locals.localBrightness);
-        lb = clamp01((lb - 0.5) * state.locals.localContrast + 0.5 + state.locals.localBrightness);
-        [lr, lg, lb] = applySaturation(lr, lg, lb, state.locals.localSaturation, 0);
-        if (blurred && state.locals.localClarity > 0) {
-          lr = clamp01(lr + (lr - blurred.data[i] / 255) * state.locals.localClarity);
-          lg = clamp01(lg + (lg - blurred.data[i + 1] / 255) * state.locals.localClarity);
-          lb = clamp01(lb + (lb - blurred.data[i + 2] / 255) * state.locals.localClarity);
+        lr = clamp01((lr - 0.5) * locals.localContrast + 0.5 + locals.localBrightness);
+        lg = clamp01((lg - 0.5) * locals.localContrast + 0.5 + locals.localBrightness);
+        lb = clamp01((lb - 0.5) * locals.localContrast + 0.5 + locals.localBrightness);
+        [lr, lg, lb] = applySaturation(lr, lg, lb, locals.localSaturation, 0);
+        if (blurred && locals.localClarity > 0) {
+          lr = clamp01(lr + (lr - blurred.data[i] / 255) * locals.localClarity);
+          lg = clamp01(lg + (lg - blurred.data[i + 1] / 255) * locals.localClarity);
+          lb = clamp01(lb + (lb - blurred.data[i + 2] / 255) * locals.localClarity);
         }
         r = lerp(r, lr, m);
         g = lerp(g, lg, m);
@@ -619,9 +670,7 @@ function renderImage() {
     out[i + 3] = src[i + 3];
   }
 
-  state.edited = new ImageData(out, w, h);
-  drawCanvas();
-  drawHistogram(state.edited);
+  return new ImageData(out, w, h);
 }
 
 function stretchChannel(v, bp, wp, gamma, exposureMul, autoStretch) {
@@ -815,8 +864,11 @@ function getRenderSourceImage() {
 
 function setStarlessLayer(layer) {
   state.activeLayer = layer;
-  state.starlessActive = layer !== 'composite';
+  state.adjustments = state.layerAdjustments[layer];
+  state.locals = state.layerLocals[layer];
+  state.starlessActive = state.starlessActive || layer !== 'composite';
   if (state.starlessActive && (!state.starless || !state.starLayer)) separateStarLayers();
+  syncControls();
   syncLayerButtons();
   setView('edited');
   scheduleRender();
@@ -832,7 +884,9 @@ function activateStarlessSplit() {
   state.masks.background = createBackgroundMask(state.masks.stars);
   invalidateStarLayers();
   separateStarLayers();
+  state.starlessActive = true;
   setStarlessLayer('starless');
+  recordHistory();
 }
 
 function makeCompareImage() {
@@ -1194,28 +1248,125 @@ function updateMaskButtons() {
   if (els.starMaskOptions) els.starMaskOptions.hidden = state.activeMask !== 'stars';
 }
 
+function currentSnapshot() {
+  return {
+    layerAdjustments: clonePlain(state.layerAdjustments),
+    layerLocals: clonePlain(state.layerLocals),
+    activeLayer: state.activeLayer,
+    activeMask: state.activeMask,
+    starlessActive: state.starlessActive,
+    blackPoint: els.blackPoint.value,
+    midtone: els.midtone.value,
+    whitePoint: els.whitePoint.value,
+    invertMask: els.invertMask.checked,
+  };
+}
+
+function applySnapshot(snapshot) {
+  state.suppressHistory = true;
+  state.layerAdjustments = clonePlain(snapshot.layerAdjustments);
+  state.layerLocals = clonePlain(snapshot.layerLocals);
+  state.activeLayer = snapshot.activeLayer;
+  state.activeMask = snapshot.activeMask;
+  state.starlessActive = snapshot.starlessActive;
+  state.adjustments = state.layerAdjustments[state.activeLayer];
+  state.locals = state.layerLocals[state.activeLayer];
+  syncControls();
+  els.blackPoint.value = snapshot.blackPoint;
+  els.midtone.value = snapshot.midtone;
+  els.whitePoint.value = snapshot.whitePoint;
+  els.invertMask.checked = snapshot.invertMask;
+  updateRangeReadouts();
+  updateMaskButtons();
+  syncLayerButtons();
+  updateHistoryButtons();
+  state.suppressHistory = false;
+  scheduleRender(0);
+}
+
+function recordHistory() {
+  if (state.suppressHistory || !state.original) return;
+  const snapshot = currentSnapshot();
+  const previous = state.history[state.historyIndex];
+  if (previous && JSON.stringify(previous) === JSON.stringify(snapshot)) return;
+  state.history = state.history.slice(0, state.historyIndex + 1);
+  state.history.push(snapshot);
+  state.historyIndex = state.history.length - 1;
+  updateHistoryButtons();
+}
+
+function undo() {
+  if (state.historyIndex <= 0) return;
+  state.historyIndex--;
+  applySnapshot(state.history[state.historyIndex]);
+}
+
+function redo() {
+  if (state.historyIndex >= state.history.length - 1) return;
+  state.historyIndex++;
+  applySnapshot(state.history[state.historyIndex]);
+}
+
+function updateHistoryButtons() {
+  if (!els.undoBtn || !els.redoBtn) return;
+  els.undoBtn.disabled = state.historyIndex <= 0;
+  els.redoBtn.disabled = state.historyIndex >= state.history.length - 1;
+}
+
+function decorateRangeInputs() {
+  document.querySelectorAll('input[type="range"]').forEach(input => {
+    if (!input.id && (input.dataset.adj || input.dataset.local)) input.id = `range-${input.dataset.adj || input.dataset.local}`;
+    const label = input.closest('label');
+    if (!label || label.querySelector('.range-meta')) return;
+    const meta = document.createElement('div');
+    meta.className = 'range-meta';
+    const min = input.getAttribute('min') ?? '0';
+    const max = input.getAttribute('max') ?? '100';
+    const def = input.defaultValue || input.getAttribute('value') || '0';
+    meta.innerHTML = `<span>${min}</span><span class="range-default">${def}</span><span>${max}</span><strong>${input.value}</strong>`;
+    input.insertAdjacentElement('afterend', meta);
+  });
+  updateRangeReadouts();
+}
+
+function updateRangeReadouts() {
+  document.querySelectorAll('input[type="range"]').forEach(input => {
+    const current = input.closest('label')?.querySelector('.range-meta strong');
+    if (current) current.textContent = Number(input.value).toFixed(String(input.step).includes('.') ? Math.min(3, String(input.step).split('.')[1].length) : 0);
+  });
+}
+
 document.querySelectorAll('[data-adj]').forEach(input => {
   input.addEventListener('input', () => {
     state.adjustments[input.dataset.adj] = Number(input.value);
+    updateRangeReadouts();
     scheduleRender();
   });
+  input.addEventListener('change', recordHistory);
 });
 document.querySelectorAll('[data-local]').forEach(input => {
   input.addEventListener('input', () => {
     state.locals[input.dataset.local] = Number(input.value);
+    updateRangeReadouts();
     scheduleRender();
   });
+  input.addEventListener('change', recordHistory);
 });
-[els.blackPoint, els.midtone, els.whitePoint, els.showMask, els.invertMask].forEach(el => el.addEventListener('input', scheduleRender));
+[els.blackPoint, els.midtone, els.whitePoint, els.showMask, els.invertMask].forEach(el => {
+  el.addEventListener('input', () => { updateRangeReadouts(); scheduleRender(); });
+  el.addEventListener('change', recordHistory);
+});
 els.maskFeather.addEventListener('input', () => {
   if (!state.original) return;
   if (state.activeMask === 'target') state.masks.target = createTargetMask();
   if (state.activeMask === 'background') state.masks.background = createBackgroundMask();
   if (state.activeMask === 'stars') { state.masks.stars = createStarMask(); invalidateStarLayers(); }
+  updateRangeReadouts();
+  recordHistory();
   scheduleRender();
 });
 
-document.querySelectorAll('.mask-btn').forEach(btn => btn.addEventListener('click', () => setActiveMask(btn.dataset.mask)));
+document.querySelectorAll('.mask-btn').forEach(btn => btn.addEventListener('click', () => { setActiveMask(btn.dataset.mask); recordHistory(); }));
 
 function activateTool(tool) {
   document.querySelectorAll('[data-tool]').forEach(btn => btn.classList.toggle('active', btn.dataset.tool === tool));
@@ -1223,14 +1374,16 @@ function activateTool(tool) {
 }
 document.querySelectorAll('[data-tool]').forEach(btn => btn.addEventListener('click', () => activateTool(btn.dataset.tool)));
 if (els.activateStarlessBtn) els.activateStarlessBtn.addEventListener('click', activateStarlessSplit);
-document.querySelectorAll('[data-layer]').forEach(btn => btn.addEventListener('click', () => setStarlessLayer(btn.dataset.layer)));
+document.querySelectorAll('[data-layer]').forEach(btn => btn.addEventListener('click', () => { setStarlessLayer(btn.dataset.layer); recordHistory(); }));
+if (els.undoBtn) els.undoBtn.addEventListener('click', undo);
+if (els.redoBtn) els.redoBtn.addEventListener('click', redo);
 els.languageSelect.addEventListener('change', () => applyLanguage(els.languageSelect.value));
 
-els.autoTargetBtn.addEventListener('click', () => { if (state.original) { state.masks.target = createTargetMask(); setActiveMask('target'); els.showMask.checked = true; } });
-els.autoBgBtn.addEventListener('click', () => { if (state.original) { state.masks.background = createBackgroundMask(); setActiveMask('background'); els.showMask.checked = true; } });
-els.autoStarsBtn.addEventListener('click', () => { if (state.original) { state.masks.stars = createStarMask(); invalidateStarLayers(); setActiveMask('stars'); els.showMask.checked = true; } });
+els.autoTargetBtn.addEventListener('click', () => { if (state.original) { state.masks.target = createTargetMask(); setActiveMask('target'); els.showMask.checked = true; recordHistory(); } });
+els.autoBgBtn.addEventListener('click', () => { if (state.original) { state.masks.background = createBackgroundMask(); setActiveMask('background'); els.showMask.checked = true; recordHistory(); } });
+els.autoStarsBtn.addEventListener('click', () => { if (state.original) { state.masks.stars = createStarMask(); invalidateStarLayers(); setActiveMask('stars'); els.showMask.checked = true; recordHistory(); } });
 
-els.resetBtn.addEventListener('click', () => { resetAll(false); if (state.original) renderImage(); });
+els.resetBtn.addEventListener('click', () => { resetAll(false); if (state.original) { renderImage(); recordHistory(); } });
 els.exportPngBtn.addEventListener('click', () => exportImage('image/png', 'png'));
 els.exportJpegBtn.addEventListener('click', () => exportImage('image/jpeg', 'jpg', 0.94));
 
@@ -1345,4 +1498,6 @@ document.addEventListener('keydown', e => {
 
 applyLanguage();
 syncControls();
+decorateRangeInputs();
+updateHistoryButtons();
 activateTool('file');
