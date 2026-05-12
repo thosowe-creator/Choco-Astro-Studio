@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AstroDarkroom</title>
+  <title>Choco Astro Studio</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"></script>
 </head>
@@ -13,8 +13,8 @@
       <div class="brand">
         <div class="brand-mark">✦</div>
         <div>
-          <h1>AstroDarkroom</h1>
-          <p>Stacked TIFF / deep-sky image editor prototype</p>
+          <h1>Choco Astro Studio</h1>
+          <p>Darkroom-grade stacked TIFF editor</p>
         </div>
       </div>
       <div class="top-actions">
@@ -88,8 +88,8 @@
           <canvas id="imageCanvas"></canvas>
           <div id="emptyState" class="empty-state">
             <div class="empty-icon">☄</div>
-            <h2>스택된 천체사진을 올려보세요</h2>
-            <p>TIFF/TIF, PNG, JPG, WebP 지원 · 브라우저에서 로컬 처리</p>
+            <h2>Choco Astro Studio에 천체사진을 올려보세요</h2>
+            <p>TIFF/TIF, PNG, JPG, WebP 지원 · 빠른 미리보기 처리</p>
           </div>
         </div>
       </section>
@@ -131,7 +131,7 @@
 
         <section class="card">
           <h2>부분 보정</h2>
-          <p class="hint">선택된 마스크에만 적용됩니다. “전체”일 때는 비활성에 가깝게 작동합니다.</p>
+          <p class="hint">은하/성운, 배경, 별 마스크를 선택했을 때 해당 영역에만 적용됩니다.</p>
           <label>부분 밝기 <input data-local="localBrightness" type="range" min="-0.4" max="0.6" step="0.005" value="0" /></label>
           <label>부분 대비 <input data-local="localContrast" type="range" min="0.3" max="2.2" step="0.01" value="1" /></label>
           <label>부분 채도 <input data-local="localSaturation" type="range" min="0" max="2.5" step="0.01" value="1" /></label>

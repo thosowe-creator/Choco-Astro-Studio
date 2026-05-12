@@ -34,6 +34,9 @@ const state = {
   file: null,
   image: null,
   original: null,
+  sourceWidth: 0,
+  sourceHeight: 0,
+  sourceInfo: null,
   edited: null,
   w: 0,
   h: 0,
@@ -47,7 +50,11 @@ const state = {
   adjustments: defaultAdjustments(),
   locals: defaultLocals(),
   renderQueued: false,
+  renderTimer: null,
 };
+
+const MAX_PROCESSING_PIXELS = 2600000;
+const HISTOGRAM_SAMPLE_PIXELS = 350000;
 
 function defaultAdjustments() {
   return {
@@ -82,13 +89,17 @@ function clamp255(v) { return Math.max(0, Math.min(255, v)); }
 function luminance(r, g, b) { return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
-function scheduleRender() {
-  if (!state.original || state.renderQueued) return;
-  state.renderQueued = true;
-  requestAnimationFrame(() => {
-    state.renderQueued = false;
-    renderImage();
-  });
+function scheduleRender(delay = 45) {
+  if (!state.original) return;
+  clearTimeout(state.renderTimer);
+  state.renderTimer = setTimeout(() => {
+    if (state.renderQueued) return;
+    state.renderQueued = true;
+    requestAnimationFrame(() => {
+      state.renderQueued = false;
+      renderImage();
+    });
+  }, delay);
 }
 
 els.fileInput.addEventListener('change', async (e) => {
@@ -99,7 +110,7 @@ els.fileInput.addEventListener('change', async (e) => {
 ['dragenter', 'dragover'].forEach(type => {
   els.stage.addEventListener(type, e => {
     e.preventDefault();
-    els.stage.style.outline = '3px solid rgba(52,87,255,.25)';
+    els.stage.style.outline = '3px solid rgba(245,158,76,.34)';
   });
 });
 ['dragleave', 'drop'].forEach(type => {
@@ -115,8 +126,8 @@ els.stage.addEventListener('drop', async (e) => {
 
 async function loadFile(file) {
   const lower = file.name.toLowerCase();
+  resetAll(true);
   state.file = file;
-  resetAll(false);
 
   try {
     let imageData;
@@ -125,20 +136,23 @@ async function loadFile(file) {
     } else {
       imageData = await loadBrowserImage(file);
     }
-    state.original = imageData;
-    state.edited = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
-    state.w = imageData.width;
-    state.h = imageData.height;
+    const prepared = prepareProcessingImage(imageData);
+    state.original = prepared.imageData;
+    state.edited = new ImageData(new Uint8ClampedArray(prepared.imageData.data), prepared.imageData.width, prepared.imageData.height);
+    state.sourceWidth = imageData.width;
+    state.sourceHeight = imageData.height;
+    state.sourceInfo = { ...(imageData.info || {}), previewScale: prepared.scale };
+    state.w = prepared.imageData.width;
+    state.h = prepared.imageData.height;
     els.canvas.width = state.w;
     els.canvas.height = state.h;
     els.emptyState.style.display = 'none';
     fitToStage();
-    updateMeta(file, imageData);
-    autoCreateMasks();
+    updateMeta(file);
     renderImage();
   } catch (err) {
     console.error(err);
-    alert('이미지를 읽지 못했습니다. TIFF가 압축 방식에 따라 제한될 수 있습니다. PNG/JPG로 변환 후 다시 시도해보세요.');
+    alert(`이미지를 읽지 못했습니다. ${err.message || 'TIFF 압축/비트 심도/메모리 제한을 확인해주세요.'}`);
   }
 }
 
@@ -153,7 +167,9 @@ function loadBrowserImage(file) {
       const cctx = c.getContext('2d', { willReadFrequently: true });
       cctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
-      resolve(cctx.getImageData(0, 0, c.width, c.height));
+      const imageData = cctx.getImageData(0, 0, c.width, c.height);
+      imageData.info = { bitDepth: 8, sourceType: 'browser' };
+      resolve(imageData);
     };
     img.onerror = reject;
     img.src = url;
@@ -161,24 +177,174 @@ function loadBrowserImage(file) {
 }
 
 async function loadTiff(file) {
-  if (!window.UTIF) throw new Error('UTIF library unavailable');
+  if (!window.UTIF) throw new Error('TIFF 디코더를 불러오지 못했습니다. 인터넷 연결 또는 CDN 차단 여부를 확인해주세요.');
   const buf = await file.arrayBuffer();
   const ifds = UTIF.decode(buf);
-  if (!ifds.length) throw new Error('No TIFF pages');
-  UTIF.decodeImage(buf, ifds[0]);
-  const rgba = UTIF.toRGBA8(ifds[0]);
-  return new ImageData(new Uint8ClampedArray(rgba), ifds[0].width, ifds[0].height);
+  if (!ifds.length) throw new Error('TIFF 페이지를 찾지 못했습니다.');
+  const ifd = ifds[0];
+  UTIF.decodeImage(buf, ifd);
+
+  const normalized = decodeTiffToDisplayImage(ifd, buf);
+  if (normalized) return normalized;
+
+  const rgba = UTIF.toRGBA8(ifd);
+  const imageData = new ImageData(new Uint8ClampedArray(rgba), ifd.width, ifd.height);
+  imageData.info = {
+    bitDepth: normalizeTagArray(ifd.t258)[0] || 8,
+    sourceType: 'utif-rgba8',
+    warning: 'TIFF 원본 샘플을 직접 해석하지 못해 UTIF 8-bit 변환을 사용했습니다.',
+  };
+  return imageData;
 }
 
-function updateMeta(file, data) {
+function decodeTiffToDisplayImage(ifd, buf) {
+  const w = ifd.width || ifd.t256;
+  const h = ifd.height || ifd.t257;
+  const bytes = ifd.data;
+  if (!w || !h || !bytes) return null;
+
+  const bits = normalizeTagArray(ifd.t258);
+  const samples = Number(ifd.t277 || bits.length || 1);
+  const sampleBits = bits[0] || 8;
+  const sampleFormat = normalizeTagArray(ifd.t339)[0] || 1;
+  const planar = Number(ifd.t284 || 1);
+  if (![8, 16, 32].includes(sampleBits) || planar !== 1 || samples < 1) return null;
+
+  const littleEndian = detectTiffEndian(buf);
+  const bytesPerSample = sampleBits / 8;
+  const expected = w * h * samples * bytesPerSample;
+  if (bytes.length < Math.min(expected, w * h * bytesPerSample)) return null;
+
+  const photometric = Number(ifd.t262 || 2);
+  const readSample = createTiffSampleReader(bytes, sampleBits, sampleFormat, littleEndian);
+  const read = (pixel, channel) => readSample((pixel * samples + Math.min(channel, samples - 1)) * bytesPerSample);
+  const hasRgb = samples >= 3 && photometric !== 0 && photometric !== 1;
+  const pixelCount = w * h;
+  const sampleStep = Math.max(1, Math.floor(pixelCount / 180000));
+  const lumSamples = [];
+
+  for (let p = 0; p < pixelCount; p += sampleStep) {
+    const r = read(p, 0);
+    const g = hasRgb ? read(p, 1) : r;
+    const b = hasRgb ? read(p, 2) : r;
+    const l = luminance(r, g, b);
+    if (Number.isFinite(l)) lumSamples.push(l);
+  }
+  if (lumSamples.length < 16) return null;
+  lumSamples.sort((a, b) => a - b);
+  let black = percentileSorted(lumSamples, 0.0015);
+  let white = percentileSorted(lumSamples, 0.9985);
+  if (!(white > black)) {
+    black = lumSamples[0];
+    white = lumSamples[lumSamples.length - 1] || 1;
+  }
+  const range = Math.max(white - black, Number.EPSILON);
+  const out = new Uint8ClampedArray(pixelCount * 4);
+  const invert = photometric === 0;
+
+  for (let p = 0, i = 0; p < pixelCount; p++, i += 4) {
+    let r = read(p, 0);
+    let g = hasRgb ? read(p, 1) : r;
+    let b = hasRgb ? read(p, 2) : r;
+    if (invert) { r = white - (r - black); g = white - (g - black); b = white - (b - black); }
+    out[i] = toneMapPreview(r, black, range);
+    out[i + 1] = toneMapPreview(g, black, range);
+    out[i + 2] = toneMapPreview(b, black, range);
+    out[i + 3] = samples >= 4 ? clamp255(read(p, 3) * 255) : 255;
+  }
+
+  const imageData = new ImageData(out, w, h);
+  imageData.info = {
+    bitDepth: sampleBits,
+    sampleFormat,
+    samples,
+    sourceType: 'normalized-tiff',
+    black,
+    white,
+  };
+  return imageData;
+}
+
+function normalizeTagArray(value) {
+  if (Array.isArray(value)) return value.map(Number);
+  if (value && typeof value.length === 'number') return Array.from(value, Number);
+  return value == null ? [] : [Number(value)];
+}
+
+function detectTiffEndian(buf) {
+  const sig = new Uint8Array(buf, 0, 2);
+  return sig[0] === 0x49 && sig[1] === 0x49;
+}
+
+function createTiffSampleReader(bytes, bits, format, littleEndian) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return (offset) => {
+    if (offset < 0 || offset >= bytes.length) return 0;
+    if (bits === 8) return bytes[offset] / 255;
+    if (bits === 16) {
+      const v = format === 2 ? view.getInt16(offset, littleEndian) : view.getUint16(offset, littleEndian);
+      return format === 2 ? (v + 32768) / 65535 : v / 65535;
+    }
+    if (bits === 32 && format === 3) return view.getFloat32(offset, littleEndian);
+    const v = format === 2 ? view.getInt32(offset, littleEndian) : view.getUint32(offset, littleEndian);
+    return format === 2 ? (v + 2147483648) / 4294967295 : v / 4294967295;
+  };
+}
+
+function percentileSorted(values, p) {
+  return values[clampIndex(Math.floor(values.length * p), values.length)];
+}
+
+function toneMapPreview(value, black, range) {
+  const x = clamp01((value - black) / range);
+  const stretched = Math.asinh(x * 10) / Math.asinh(10);
+  return clamp255(Math.pow(stretched, 0.82) * 255);
+}
+
+function prepareProcessingImage(imageData) {
+  const pixels = imageData.width * imageData.height;
+  if (pixels <= MAX_PROCESSING_PIXELS) return { imageData, scale: 1 };
+  const scale = Math.sqrt(MAX_PROCESSING_PIXELS / pixels);
+  return { imageData: resizeImageData(imageData, scale), scale };
+}
+
+function resizeImageData(imageData, scale) {
+  const w = Math.max(1, Math.round(imageData.width * scale));
+  const h = Math.max(1, Math.round(imageData.height * scale));
+  const c = document.createElement('canvas');
+  c.width = imageData.width;
+  c.height = imageData.height;
+  const cctx = c.getContext('2d');
+  cctx.putImageData(imageData, 0, 0);
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext('2d', { willReadFrequently: true });
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = 'high';
+  octx.drawImage(c, 0, 0, w, h);
+  const resized = octx.getImageData(0, 0, w, h);
+  resized.info = imageData.info;
+  return resized;
+}
+
+function updateMeta(file) {
+  const info = state.sourceInfo || {};
+  const bitDepth = info.bitDepth ? `${info.bitDepth}-bit` : '8-bit';
+  const preview = info.previewScale && info.previewScale < 1
+    ? `${state.w} × ${state.h} 미리보기 (${Math.round(info.previewScale * 100)}%)`
+    : `${state.w} × ${state.h}`;
+  const warning = info.warning ? `<p class="meta-warning">${escapeHtml(info.warning)}</p>` : '';
   els.fileMeta.innerHTML = `
     <dl>
       <dt>이름</dt><dd title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</dd>
       <dt>포맷</dt><dd>${escapeHtml(file.type || file.name.split('.').pop()?.toUpperCase() || 'unknown')}</dd>
-      <dt>크기</dt><dd>${data.width} × ${data.height}</dd>
+      <dt>원본</dt><dd>${state.sourceWidth} × ${state.sourceHeight}</dd>
+      <dt>작업</dt><dd>${preview}</dd>
+      <dt>비트</dt><dd>${escapeHtml(bitDepth)} · ${escapeHtml(info.sourceType || 'browser')}</dd>
       <dt>용량</dt><dd>${(file.size / 1024 / 1024).toFixed(2)} MB</dd>
-      <dt>처리</dt><dd>브라우저 로컬 8-bit 미리보기 엔진</dd>
     </dl>
+    ${warning}
   `;
 }
 function escapeHtml(str) { return String(str).replace(/[&<>'"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[s])); }
@@ -219,9 +385,9 @@ function syncControls() {
 }
 
 function autoCreateMasks() {
-  state.masks.background = createBackgroundMask();
-  state.masks.stars = createStarMask();
-  state.masks.target = createTargetMask();
+  state.masks.stars = state.masks.stars || createStarMask();
+  state.masks.background = state.masks.background || createBackgroundMask(state.masks.stars);
+  state.masks.target = state.masks.target || createTargetMask();
 }
 
 function renderImage() {
@@ -406,36 +572,40 @@ function drawMaskOverlay() {
 function drawHistogram(imageData) {
   const bins = new Uint32Array(256);
   const data = imageData.data;
+  const pixelCount = data.length / 4;
+  const stride = Math.max(4, Math.floor(pixelCount / HISTOGRAM_SAMPLE_PIXELS) * 4);
   let clipped = 0;
-  for (let i = 0; i < data.length; i += 4) {
+  let counted = 0;
+  for (let i = 0; i < data.length; i += stride) {
     const l = Math.round(luminance(data[i], data[i + 1], data[i + 2]));
     bins[l]++;
+    counted++;
     if (l <= 1 || l >= 254) clipped++;
   }
   const max = Math.max(...bins);
   const w = els.histogram.width, h = els.histogram.height;
   hctx.clearRect(0, 0, w, h);
-  hctx.fillStyle = '#f8faff';
+  hctx.fillStyle = '#120d0a';
   hctx.fillRect(0, 0, w, h);
-  hctx.strokeStyle = '#dfe4ee';
+  hctx.strokeStyle = 'rgba(255, 222, 190, 0.14)';
   hctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const y = (h / 4) * i;
     hctx.beginPath(); hctx.moveTo(0, y); hctx.lineTo(w, y); hctx.stroke();
   }
-  hctx.fillStyle = '#3457ff';
+  hctx.fillStyle = '#f59e4c';
   for (let x = 0; x < 256; x++) {
     const bar = Math.sqrt(bins[x] / max) * (h - 16);
     hctx.fillRect(x * w / 256, h - bar, Math.ceil(w / 256), bar);
   }
-  hctx.strokeStyle = '#151923';
+  hctx.strokeStyle = '#f5eee7';
   hctx.beginPath();
   const bp = Number(els.blackPoint.value) * w;
   const wp = Number(els.whitePoint.value) * w;
   hctx.moveTo(bp, 0); hctx.lineTo(bp, h);
   hctx.moveTo(wp, 0); hctx.lineTo(wp, h);
   hctx.stroke();
-  els.clipInfo.textContent = `clip ${((clipped / (data.length / 4)) * 100).toFixed(2)}%`;
+  els.clipInfo.textContent = `clip ${((clipped / Math.max(1, counted)) * 100).toFixed(2)}%`;
 }
 
 function createTargetMask() {
@@ -470,7 +640,7 @@ function createTargetMask() {
   return featherMask(cleanMask(mask, w, h, 2), w, h, Number(els.maskFeather.value));
 }
 
-function createBackgroundMask() {
+function createBackgroundMask(existingStarMask = null) {
   if (!state.original) return null;
   const { data, width: w, height: h } = state.original;
   const mask = new Uint8ClampedArray(w * h);
@@ -484,8 +654,8 @@ function createBackgroundMask() {
     const m = 1 - clamp01((l - q55) / Math.max(1, q78 - q55));
     mask[p] = clamp255(m * 255);
   }
-  const star = createStarMask();
-  for (let p = 0; p < mask.length; p++) mask[p] = clamp255(mask[p] * (1 - (star[p] || 0) / 255));
+  const star = existingStarMask || state.masks.stars || createStarMask();
+  for (let p = 0; p < mask.length; p++) mask[p] = clamp255(mask[p] * (1 - (star?.[p] || 0) / 255));
   return featherMask(mask, w, h, 10);
 }
 
@@ -663,7 +833,7 @@ els.autoTargetBtn.addEventListener('click', () => { if (state.original) { state.
 els.autoBgBtn.addEventListener('click', () => { if (state.original) { state.masks.background = createBackgroundMask(); setActiveMask('background'); els.showMask.checked = true; } });
 els.autoStarsBtn.addEventListener('click', () => { if (state.original) { state.masks.stars = createStarMask(); setActiveMask('stars'); els.showMask.checked = true; } });
 
-els.resetBtn.addEventListener('click', () => { resetAll(false); if (state.original) { autoCreateMasks(); renderImage(); } });
+els.resetBtn.addEventListener('click', () => { resetAll(false); if (state.original) renderImage(); });
 els.exportPngBtn.addEventListener('click', () => exportImage('image/png', 'png'));
 els.exportJpegBtn.addEventListener('click', () => exportImage('image/jpeg', 'jpg', 0.94));
 
