@@ -18,6 +18,7 @@ const els = {
   autoTargetBtn: document.getElementById('autoTargetBtn'),
   autoBgBtn: document.getElementById('autoBgBtn'),
   autoStarsBtn: document.getElementById('autoStarsBtn'),
+  autoCorrectBtn: document.getElementById('autoCorrectBtn'),
   zoomLabel: document.getElementById('zoomLabel'),
   zoomIn: document.getElementById('zoomIn'),
   zoomOut: document.getElementById('zoomOut'),
@@ -85,7 +86,7 @@ const i18n = {
     fileHint: 'Open a stacked TIFF, PNG, JPG, or WebP image.', black: 'Black', mid: 'Mid', white: 'White', wholeImage: 'Whole Image', objectMask: 'Object Mask', backgroundMask: 'Background Mask', starMask: 'Star Mask',
     maskHint: 'Object mask selects extended nebula/galaxy structures while excluding stars and background. Drag on the image to guide object detection.', showMask: 'Show Mask', invertMask: 'Invert Mask', feather: 'Feather', starMaskRemoveHint: 'Star removal is available when the Star Mask is selected. It lowers detected star brightness to the nearby background and blends it into the image.',
     detectObject: 'Detect Object Mask', detectBackground: 'Detect Background Mask', detectStars: 'Detect Star Mask', exposure: 'Exposure', brightness: 'Brightness', contrast: 'Contrast', saturation: 'Saturation', vibrance: 'Vibrance', gamma: 'Gamma',
-    autoStretch: 'Auto Stretch', backgroundDarken: 'Background Darken', backgroundNeutral: 'Background Neutralize', gradientReduce: 'Gradient Reduce', starToolsHint: '', separateStars: 'Separate Stars', starViewHint: 'Use View → Starless or Stars to inspect the separated layers.', starRemove: 'Remove Masked Stars', starRestore: 'Add Stars Back', starReduction: 'Star Reduction', starColor: 'Star Color', clarity: 'Clarity / Structure', denoise: 'Denoise', haAccent: 'Hα Accent',
+    autoCorrect: 'Auto Correct', autoCorrectHint: 'Analyzes the image and sets the existing tools to a balanced starting point without removing stars.', autoStretch: 'Auto Stretch', backgroundDarken: 'Background Darken', backgroundNeutral: 'Background Neutralize', gradientReduce: 'Gradient Reduce', starToolsHint: '', separateStars: 'Separate Stars', starViewHint: 'Use View → Starless or Stars to inspect the separated layers.', starRemove: 'Remove Masked Stars', starRestore: 'Add Stars Back', starReduction: 'Star Reduction', starColor: 'Star Color', clarity: 'Clarity / Structure', denoise: 'Denoise', haAccent: 'Hα Accent',
     localHint: 'Choose Object, Background, or Star Mask first. These controls only affect the selected mask.', localBrightness: 'Local Brightness', localContrast: 'Local Contrast', localSaturation: 'Local Saturation', localClarity: 'Local Detail',
     edited: 'Edited', original: 'Original', compare: 'Compare', starlessView: 'Starless', starsView: 'Stars', fit: 'Fit', language: 'Language', settingsHint: 'English is the default. Switch here whenever you want Korean UI labels.',
     emptyTitle: 'Drop your astro image into Choco Astro Studio', emptyText: 'TIFF/TIF, PNG, JPG, WebP · fast browser preview processing',
@@ -98,7 +99,7 @@ const i18n = {
     fileHint: '스태킹 완료 TIFF, PNG, JPG, WebP 등을 불러오세요.', black: '블랙', mid: '미드', white: '화이트', wholeImage: '전체 이미지', objectMask: '천체 마스크', backgroundMask: '배경 마스크', starMask: '별 마스크',
     maskHint: '천체 마스크는 별과 배경을 제외한 은하/성운 같은 확장 구조를 선택합니다. 이미지 위를 드래그하면 감지 기준을 줄 수 있습니다.', showMask: '마스크 표시', invertMask: '마스크 반전', feather: '페더', starMaskRemoveHint: '별 마스크를 선택했을 때만 별 제거를 사용할 수 있습니다. 감지된 별의 밝기를 주변 배경에 맞춰 낮춘 뒤 자연스럽게 합성합니다.',
     detectObject: '천체 마스크 감지', detectBackground: '배경 마스크 감지', detectStars: '별 마스크 감지', exposure: '노출', brightness: '밝기', contrast: '대비', saturation: '채도', vibrance: '자연 채도', gamma: '감마',
-    autoStretch: '자동 스트레치', backgroundDarken: '배경 어둡게', backgroundNeutral: '배경 중화', gradientReduce: '그라디언트 완화', starToolsHint: '', separateStars: '별 분리', starViewHint: 'Starless Layer Split에서 Object 또는 별만 레이어를 선택해 분리 결과를 보정하세요.', starRemove: '선택한 별 제거', starRestore: '별 다시 추가', starReduction: '별상 축소', starColor: '별 색감', clarity: '샤픈 / 구조', denoise: '노이즈 완화', haAccent: 'Hα 강조',
+    autoCorrect: '자동보정', autoCorrectHint: '별 제거 없이 현재 툴 값을 분석 기반 추천값으로 맞춥니다.', autoStretch: '자동 스트레치', backgroundDarken: '배경 어둡게', backgroundNeutral: '배경 중화', gradientReduce: '그라디언트 완화', starToolsHint: '', separateStars: '별 분리', starViewHint: 'Starless Layer Split에서 Object 또는 별만 레이어를 선택해 분리 결과를 보정하세요.', starRemove: '선택한 별 제거', starRestore: '별 다시 추가', starReduction: '별상 축소', starColor: '별 색감', clarity: '샤픈 / 구조', denoise: '노이즈 완화', haAccent: 'Hα 강조',
     localHint: '천체, 배경, 별 마스크 중 하나를 먼저 선택하세요. 이 조절값은 선택한 마스크에만 적용됩니다.', localBrightness: '부분 밝기', localContrast: '부분 대비', localSaturation: '부분 채도', localClarity: '부분 디테일',
     edited: '보정', original: '원본', compare: '비교', starlessView: '별 제거본', starsView: '별 레이어', fit: '맞춤', language: '언어', settingsHint: '기본값은 영어입니다. 여기에서 언제든 한국어 UI로 바꿀 수 있습니다.',
     emptyTitle: 'Choco Astro Studio에 천체사진을 올려보세요', emptyText: 'TIFF/TIF, PNG, JPG, WebP · 빠른 브라우저 미리보기 처리',
@@ -168,6 +169,7 @@ function clonePlain(obj) {
 
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
 function clamp255(v) { return Math.max(0, Math.min(255, v)); }
+function clampRange(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function luminance(r, g, b) { return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
@@ -524,6 +526,7 @@ function processImageData(sourceImage, adj = state.adjustments, locals = state.l
   const needsStars = adj.starRemove > 0 || adj.starRestore > 0 || adj.starReduction > 0 || adj.starColor !== 1 || state.activeMask === 'stars' || state.activeMask === 'target' || state.activeMask === 'background';
   const needsBackground = adj.backgroundNeutral > 0 || adj.backgroundDarken > 0 || state.activeMask === 'background' || state.activeMask === 'target';
   const starMask = needsStars ? ensureMask('stars') : state.masks.stars;
+  const targetMask = (adj.starRemove > 0 || adj.starReduction > 0 || state.starlessActive) ? ensureMask('target') : state.masks.target;
   const bgMask = needsBackground ? ensureMask('background') : state.masks.background;
   const mask = getActiveMask();
   const localMask = state.activeMask === 'none' ? null : mask;
@@ -601,15 +604,18 @@ function processImageData(sourceImage, adj = state.adjustments, locals = state.l
           );
         }
 
+        const objectProtection = targetMask ? targetMask[p] / 255 : 0;
+        const protectedStar = s * (1 - objectProtection * 0.72);
+
         if (adj.starRemove > 0 && state.activeMask === 'stars') {
-          const remove = clamp01(adj.starRemove * s);
+          const remove = clamp01(adj.starRemove * protectedStar * 0.58);
           r = lerp(r, baseR, remove);
           g = lerp(g, baseG, remove);
           b = lerp(b, baseB, remove);
         }
 
         if (adj.starReduction > 0) {
-          const factor = adj.starReduction * s * 0.62;
+          const factor = adj.starReduction * protectedStar * 0.46;
           r = lerp(r, baseR, factor);
           g = lerp(g, baseG, factor);
           b = lerp(b, baseB, factor);
@@ -720,9 +726,9 @@ function processStarBaseColor(r, g, b, adj, bp, wp, gamma, exposureMul) {
 function createStarBaseImage(imageData, starMask) {
   if (!imageData || !starMask) return imageData;
   const { data, width: w, height: h } = imageData;
-  const inpaintRadius = Math.max(3, Math.min(10, Math.round(Math.sqrt(w * h) / 330)));
-  const inpaintMask = featherMask(dilateMask(starMask, w, h, inpaintRadius), w, h, Math.max(3, Math.round(inpaintRadius / 2)));
-  const hardMask = dilateMask(starMask, w, h, Math.max(2, Math.round(inpaintRadius / 2)));
+  const inpaintRadius = Math.max(2, Math.min(7, Math.round(Math.sqrt(w * h) / 430)));
+  const inpaintMask = featherMask(dilateMask(starMask, w, h, inpaintRadius), w, h, Math.max(2, Math.round(inpaintRadius / 2)));
+  const hardMask = dilateMask(starMask, w, h, Math.max(1, Math.round(inpaintRadius / 2)));
   const out = new Uint8ClampedArray(data);
   const offsets = starSampleOffsets();
 
@@ -731,7 +737,7 @@ function createStarBaseImage(imageData, starMask) {
     const x = p % w, y = Math.floor(p / w);
     const bg = estimateBackgroundAt(data, hardMask, w, h, x, y, offsets);
     const i = p * 4;
-    const m = clamp01(inpaintMask[p] / 220);
+    const m = clamp01(inpaintMask[p] / 255) * 0.72;
     const avg = (bg[0] + bg[1] + bg[2]) / 3;
     const neutral = [lerp(bg[0], avg, 0.18), lerp(bg[1], avg, 0.18), lerp(bg[2], avg, 0.18)];
     out[i] = lerp(out[i], neutral[0], m);
@@ -739,7 +745,7 @@ function createStarBaseImage(imageData, starMask) {
     out[i + 2] = lerp(out[i + 2], neutral[2], m);
   }
 
-  diffuseInpaint(out, inpaintMask, w, h, 5);
+  diffuseInpaint(out, inpaintMask, w, h, 3);
   return new ImageData(out, w, h);
 }
 
@@ -809,6 +815,17 @@ function estimateBackgroundAt(data, starMask, w, h, x, y, offsets) {
   return [fallback[0] * 255, fallback[1] * 255, fallback[2] * 255];
 }
 
+function createObjectProtectedStarMask(starMask, targetMask, w, h, strength = 0.65) {
+  if (!starMask) return null;
+  if (!targetMask) return starMask;
+  const out = new Uint8ClampedArray(starMask.length);
+  for (let p = 0; p < out.length; p++) {
+    const protect = targetMask[p] / 255;
+    out[p] = clamp255(starMask[p] * (1 - protect * strength));
+  }
+  return featherMask(out, w, h, 1);
+}
+
 function drawCanvas() {
   if (!state.original || !state.edited) return;
   let frame = state.edited;
@@ -823,7 +840,8 @@ function drawCanvas() {
 function separateStarLayers() {
   if (!state.original) return;
   const detectedStarMask = ensureMask('stars');
-  const starMask = detectedStarMask ? dilateMask(detectedStarMask, state.w, state.h, Math.max(1, Math.round(Math.sqrt(state.w * state.h) / 700))) : null;
+  const targetMask = ensureMask('target');
+  const starMask = detectedStarMask ? createObjectProtectedStarMask(detectedStarMask, targetMask, state.w, state.h, 0.65) : null;
   const base = ensureStarBase(starMask);
   const src = state.original.data;
   const starless = new Uint8ClampedArray(src.length);
@@ -1034,7 +1052,7 @@ function createStarMask() {
     if (p % 5 === 0) samples.push(lum[p]);
   }
   samples.sort((a, b) => a - b);
-  const q = samples[Math.floor(samples.length * 0.976)] || 0.74;
+  const q = percentileSorted(samples, 0.982) || 0.74;
   const broad = blurScalar(lum, w, h, 7);
   const local = blurScalar(lum, w, h, 2);
   const candidates = new Uint8ClampedArray(w * h);
@@ -1044,17 +1062,17 @@ function createStarMask() {
     const coreContrast = lum[p] - local[p];
     const maxc = Math.max(data[i], data[i + 1], data[i + 2]) / 255;
     const minc = Math.min(data[i], data[i + 1], data[i + 2]) / 255;
-    const chromaHalo = maxc - minc > 0.16 && pointLike > 0.018 && lum[p] > q * 0.48;
-    const brightCompact = lum[p] > q && pointLike > 0.018;
-    if (brightCompact || pointLike > 0.052 || coreContrast > 0.04 || chromaHalo) {
-      candidates[p] = clamp255((Math.max(lum[p] - q, pointLike, coreContrast, chromaHalo ? 0.075 : 0) / 0.14) * 255);
+    const chromaHalo = maxc - minc > 0.18 && pointLike > 0.024 && lum[p] > q * 0.55;
+    const brightCompact = lum[p] > q && pointLike > 0.024;
+    if (brightCompact || pointLike > 0.064 || coreContrast > 0.052 || chromaHalo) {
+      candidates[p] = clamp255((Math.max(lum[p] - q, pointLike, coreContrast, chromaHalo ? 0.07 : 0) / 0.16) * 255);
     }
   }
 
   const compact = keepCompactStarComponents(candidates, lum, w, h);
-  const haloRadius = Math.max(3, Math.min(9, Math.round(Math.sqrt(w * h) / 310)));
+  const haloRadius = Math.max(2, Math.min(6, Math.round(Math.sqrt(w * h) / 440)));
   const halo = dilateMask(compact, w, h, haloRadius);
-  return featherMask(halo, w, h, Math.max(2, haloRadius));
+  return featherMask(halo, w, h, Math.max(1, Math.round(haloRadius * 0.75)));
 }
 
 function keepCompactStarComponents(mask, lum, w, h) {
@@ -1062,7 +1080,7 @@ function keepCompactStarComponents(mask, lum, w, h) {
   const seen = new Uint8Array(mask.length);
   const stack = [];
   const component = [];
-  const maxArea = Math.min(420, Math.max(30, Math.round((w * h) / 12000)));
+  const maxArea = Math.min(260, Math.max(20, Math.round((w * h) / 17000)));
 
   for (let start = 0; start < mask.length; start++) {
     if (seen[start] || mask[start] <= 0) continue;
@@ -1090,8 +1108,8 @@ function keepCompactStarComponents(mask, lum, w, h) {
     const boxArea = (maxX - minX + 1) * (maxY - minY + 1);
     const fill = area / Math.max(1, boxArea);
     const avg = sum / area;
-    const compact = area <= maxArea && fill >= 0.18;
-    const stellarCore = peak - avg > 0.025 || area <= 8;
+    const compact = area <= maxArea && fill >= 0.22;
+    const stellarCore = peak - avg > 0.035 || area <= 6;
     if (compact && stellarCore) {
       for (const p of component) out[p] = mask[p];
     }
@@ -1384,6 +1402,7 @@ els.languageSelect.addEventListener('change', () => applyLanguage(els.languageSe
 els.autoTargetBtn.addEventListener('click', () => { if (state.original) { state.masks.target = createTargetMask(); setActiveMask('target'); els.showMask.checked = true; recordHistory(); } });
 els.autoBgBtn.addEventListener('click', () => { if (state.original) { state.masks.background = createBackgroundMask(); setActiveMask('background'); els.showMask.checked = true; recordHistory(); } });
 els.autoStarsBtn.addEventListener('click', () => { if (state.original) { state.masks.stars = createStarMask(); invalidateStarLayers(); setActiveMask('stars'); els.showMask.checked = true; recordHistory(); } });
+if (els.autoCorrectBtn) els.autoCorrectBtn.addEventListener('click', applyAutoCorrection);
 
 els.resetBtn.addEventListener('click', () => { resetAll(false); if (state.original) { renderImage(); recordHistory(); } });
 els.exportPngBtn.addEventListener('click', () => exportImage('image/png', 'png'));
@@ -1490,6 +1509,97 @@ function autoStretchEstimate() {
   els.blackPoint.value = Math.max(0, vals[Math.floor(vals.length * 0.005)] - 0.005).toFixed(3);
   els.whitePoint.value = Math.min(1, vals[Math.floor(vals.length * 0.997)] + 0.02).toFixed(3);
   els.midtone.value = 0.72;
+}
+
+function estimateAutoCorrection() {
+  if (!state.original) return null;
+  const data = state.original.data;
+  const values = [];
+  let rSum = 0, gSum = 0, bSum = 0, darkR = 0, darkG = 0, darkB = 0, darkCount = 0;
+  const stride = Math.max(4, Math.floor((data.length / 4) / HISTOGRAM_SAMPLE_PIXELS) * 4);
+  for (let i = 0; i < data.length; i += stride) {
+    const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
+    const l = luminance(data[i], data[i + 1], data[i + 2]) / 255;
+    values.push(l);
+    rSum += r; gSum += g; bSum += b;
+  }
+  values.sort((a, b) => a - b);
+  const q01 = percentileSorted(values, 0.01);
+  const q10 = percentileSorted(values, 0.10);
+  const q50 = percentileSorted(values, 0.50);
+  const q90 = percentileSorted(values, 0.90);
+  const q997 = percentileSorted(values, 0.997);
+  const range = Math.max(0.001, q997 - q01);
+
+  for (let i = 0; i < data.length; i += stride) {
+    const l = luminance(data[i], data[i + 1], data[i + 2]) / 255;
+    if (l <= q10) {
+      darkR += data[i] / 255;
+      darkG += data[i + 1] / 255;
+      darkB += data[i + 2] / 255;
+      darkCount++;
+    }
+  }
+
+  const total = values.length || 1;
+  const meanR = rSum / total, meanG = gSum / total, meanB = bSum / total;
+  const darkAvg = darkCount ? (darkR + darkG + darkB) / (darkCount * 3) : q10;
+  const darkCast = darkCount ? (Math.max(darkR, darkG, darkB) - Math.min(darkR, darkG, darkB)) / darkCount : 0;
+  const redDominance = Math.max(0, meanR - Math.max(meanG, meanB));
+  const faintImage = q90 < 0.42;
+  const narrowRange = range < 0.55;
+
+  return {
+    blackPoint: clampRange(q01 - range * 0.012, 0, 0.30),
+    whitePoint: clampRange(q997 + range * 0.035, 0.55, 1),
+    midtone: clampRange(faintImage ? 0.68 - q50 * 0.25 : 0.82 - q50 * 0.12, 0.48, 0.95),
+    adjustments: {
+      exposure: clampRange((0.20 - q50) * 0.55, -0.12, 0.28),
+      brightness: clampRange((0.10 - darkAvg) * 0.14, -0.015, 0.035),
+      contrast: clampRange(1.08 + (narrowRange ? 0.14 : 0.04) + (0.25 - q50) * 0.10, 1.04, 1.28),
+      saturation: clampRange(1.08 + redDominance * 0.28, 1.06, 1.24),
+      vibrance: clampRange(0.22 + (narrowRange ? 0.10 : 0.04), 0.18, 0.38),
+      gamma: 1,
+      autoStretch: clampRange(0.36 + (faintImage ? 0.22 : 0.10), 0.34, 0.62),
+      backgroundDarken: clampRange(0.18 + q10 * 0.22, 0.14, 0.28),
+      backgroundNeutral: clampRange(0.30 + darkCast * 1.8, 0.28, 0.58),
+      gradientReduce: clampRange(0.16 + (narrowRange ? 0.08 : 0.03), 0.14, 0.30),
+      starRemove: 0,
+      starRestore: 0,
+      starReduction: clampRange(0.10 + q997 * 0.08, 0.10, 0.18),
+      starColor: 1,
+      clarity: clampRange(0.12 + (narrowRange ? 0.08 : 0.02), 0.10, 0.24),
+      denoise: clampRange(0.10 + q10 * 0.20, 0.08, 0.20),
+      haAccent: clampRange(redDominance * 0.9, 0, 0.22),
+    },
+  };
+}
+
+function applyAutoCorrection() {
+  if (!state.original) return;
+  autoCreateMasks();
+  const estimate = estimateAutoCorrection();
+  if (!estimate) return;
+  state.activeLayer = 'composite';
+  state.starlessActive = false;
+  state.adjustments = state.layerAdjustments.composite;
+  state.locals = state.layerLocals.composite;
+  Object.assign(state.adjustments, estimate.adjustments, { starRemove: 0, starRestore: 0 });
+  state.activeMask = 'none';
+  els.showMask.checked = false;
+  els.invertMask.checked = false;
+  els.blackPoint.value = estimate.blackPoint.toFixed(3);
+  els.whitePoint.value = estimate.whitePoint.toFixed(3);
+  els.midtone.value = estimate.midtone.toFixed(2);
+  syncControls();
+  els.blackPoint.value = estimate.blackPoint.toFixed(3);
+  els.whitePoint.value = estimate.whitePoint.toFixed(3);
+  els.midtone.value = estimate.midtone.toFixed(2);
+  updateRangeReadouts();
+  updateMaskButtons();
+  syncLayerButtons();
+  scheduleRender(0);
+  recordHistory();
 }
 
 document.addEventListener('keydown', e => {
